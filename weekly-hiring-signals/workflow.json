@@ -1,0 +1,773 @@
+{
+  "name": "Weekly hiring signals for recruiters: LinkedIn jobs grouped by company to Slack and Google Sheets",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Weekly hiring signals for recruiters: LinkedIn jobs → companies hiring → Slack + Google Sheets\n\nCompanies that post several jobs for the same kind of role this week are your warmest leads. Every Monday morning this workflow searches LinkedIn job posts for your roles and location, groups them **by company**, and posts a short digest to Slack: who is hiring, how many open roles, which titles, company size and industry. Every company also gets a row in a Google Sheet, so you can see who keeps hiring week after week.\n\n**How it works**\n1. Apify `santamaria-automations/linkedin-scraper` (no LinkedIn login) returns the job posts from the last 7 days for each search in **Settings**.\n2. A Code node groups the posts by company, drops staffing and recruitment agencies (your competitors, not your clients; detected from industry, name and LinkedIn description) and any company on your exclude list, and keeps companies with at least `minOpenRoles` posts.\n3. The companies are written to the **Hiring signals** tab (one row per company per week; a second run in the same week updates those rows) and the top companies go to Slack in one message.\n\n**Setup (about 10 minutes)**\n1. Install the verified community node `@apify/n8n-nodes-apify` (tested with 0.9.0; install guide: https://docs.apify.com/platform/integrations/n8n). It works on n8n Cloud and self-hosted. Connect your Apify account in **Search LinkedIn jobs** (OAuth2 on Cloud, or an API token).\n2. Connect Google Sheets (Sheet and HTTP nodes). On the first run the workflow creates the Sheet **Hiring signals - NanoScrape** in your Drive with a **Hiring signals** tab and header row; later runs find it by name.\n3. Open **Settings**: your searches (one role per line), location, minimum open roles, companies to exclude and Slack channel name.\n4. Connect Slack (the bot must be invited to the channel).\n5. Test with **Test workflow**, then activate. The trigger runs Mondays at 8 AM (your n8n timezone).\n\n**Times:** the week label and the Monday schedule use your n8n timezone (Settings → Timezone).\n\n**Tested on** n8n 2.35.7 and 2.47.7 (self-hosted), 2026-11-16.\n\n**Cost** (Apify Store prices, checked 2026-11-16): $0.001 per job post plus $0.001 per run. 3 searches × 100 posts ≈ $0.30 a week. **Max cost per run** in the Apify node caps every run.\n\n**Limits**\n- Only public LinkedIn job posts are used; no logins and no personal profiles. Company size and industry come from the company's LinkedIn page and can be missing.\n- The agency filter is a keyword check; in our London test (38 companies) it caught 9 of 11 agencies and dropped no employer. Add the rest to `excludeCompanies` once and they stay out.\n- The same company can appear under slightly different names on different posts.\n- Communities, networks and job boards that post partner jobs (not recruitment agencies) can show up as companies. Add them to `excludeCompanies`.",
+        "height": 1160,
+        "width": 520,
+        "color": 4
+      },
+      "id": "c3000000-0000-4000-8000-000000000001",
+      "name": "Sticky Note - Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -640,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 1. Search job posts\nOne run for all your searches. `datePosted` past-week matches the weekly trigger.",
+        "height": 560,
+        "width": 300,
+        "color": 7
+      },
+      "id": "c3000000-0000-4000-8000-000000000002",
+      "name": "Sticky Note - Search",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1520,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 2. Group by company\nAgencies (staffing/recruitment in the industry, name or LinkedIn description) and your exclude list are dropped.",
+        "height": 560,
+        "width": 300,
+        "color": 7
+      },
+      "id": "c3000000-0000-4000-8000-000000000003",
+      "name": "Sticky Note - Group",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1840,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 3. Sheet log + Slack digest\nAll companies go to the Sheet; the top ones to Slack. No emails are sent.",
+        "height": 560,
+        "width": 640,
+        "color": 7
+      },
+      "id": "c3000000-0000-4000-8000-000000000004",
+      "name": "Sticky Note - Output",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2160,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "id": "c3000000-0000-4000-8000-000000000110",
+      "name": "Mondays at 8 AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -60,
+        0
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "c3000000-0000-4000-8000-000000000111",
+      "name": "Run manually",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "s1",
+              "name": "searches",
+              "value": "Data Engineer\nPlatform Engineer\nDevOps Engineer",
+              "type": "string"
+            },
+            {
+              "id": "s2",
+              "name": "location",
+              "value": "London",
+              "type": "string"
+            },
+            {
+              "id": "s3",
+              "name": "maxPostsPerSearch",
+              "value": 100,
+              "type": "number"
+            },
+            {
+              "id": "s4",
+              "name": "minOpenRoles",
+              "value": 2,
+              "type": "number"
+            },
+            {
+              "id": "s5",
+              "name": "excludeCompanies",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "s6",
+              "name": "slackTop",
+              "value": 15,
+              "type": "number"
+            },
+            {
+              "id": "s8",
+              "name": "slackChannel",
+              "value": "#hiring-signals",
+              "type": "string"
+            },
+            {
+              "id": "sn",
+              "name": "sheetName",
+              "value": "Hiring signals - NanoScrape",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c3000000-0000-4000-8000-000000000112",
+      "name": "Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        140,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "Actors",
+        "operation": "Run actor and get dataset",
+        "actorId": "santamaria-automations~linkedin-scraper",
+        "customBody": "={{ JSON.stringify({ searchQueries: $('Settings').first().json.searches.split('\\n').map(s => s.trim()).filter(Boolean), location: $('Settings').first().json.location, datePosted: 'past-week', sortBy: 'newest', maxResultsPerQuery: $('Settings').first().json.maxPostsPerSearch, includeCompanyDetails: true }) }}",
+        "timeout": 1800,
+        "memory": 1024,
+        "maxTotalChargeUsd": 0.5
+      },
+      "id": "c3000000-0000-4000-8000-000000000113",
+      "name": "Search LinkedIn jobs",
+      "type": "@apify/n8n-nodes-apify.apify",
+      "typeVersion": 2,
+      "position": [
+        1600,
+        80
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "// Group job posts by company. Drop agencies, the exclude list and companies below minOpenRoles.\nconst s = $('Settings').first().json;\nconst exclude = new Set(String(s.excludeCompanies || '').split(/[,\\n]/).map(x => x.trim().toLowerCase()).filter(Boolean));\n// Agencies: industry, name or LinkedIn description mentions staffing/recruitment.\nconst AGENCY = /staffing|recruit|headhunt|executive search|talent (partner|solutions|acquisition partner)|connecting [^.|]{0,40}talent|matched to employers/i;\nconst isAgency = j => AGENCY.test(j.company_industry || '') || AGENCY.test(j.company || '') || AGENCY.test(String(j.company_description || '').slice(0, 300));\n// LinkedIn serves the same page under uk./se./www. subdomains; keep one form so the weekly key stays stable.\nconst page = u => { const m = String(u || '').match(/linkedin\\.com\\/company\\/([^/?#]+)/i); return m ? 'https://www.linkedin.com/company/' + m[1].toLowerCase() : String(u || ''); };\nconst groups = {};\nfor (const { json: j } of $input.all()) {\n  const name = String(j.company || '').trim();\n  if (!name || exclude.has(name.toLowerCase()) || isAgency(j)) continue;\n  const key = (page(j.company_url) || name).toLowerCase();\n  const g = groups[key] || (groups[key] = { company: name, ids: new Set(), titles: new Set(), locations: new Set(), newest: '', industry: j.company_industry || '', size: j.company_employee_count || '', website: j.company_website || '', linkedin_page: page(j.company_url), example_job: j.source_url || '' });\n  if (g.ids.has(j.id)) continue;\n  g.ids.add(j.id);\n  if (j.title) g.titles.add(j.title);\n  if (j.location) g.locations.add(String(j.location).split(',')[0]);\n  if ((j.posted_at || '') > g.newest) g.newest = j.posted_at;\n}\nconst week = $now.toFormat(\"kkkk-'W'WW\");\nreturn Object.values(groups)\n  .filter(g => g.ids.size >= s.minOpenRoles)\n  .sort((a, b) => b.ids.size - a.ids.size)\n  .map(g => ({ json: { key: week + ' | ' + (g.linkedin_page || g.company).toLowerCase(), week, company: g.company, open_roles: g.ids.size, titles: [...g.titles].slice(0, 5).join('; '), locations: [...g.locations].slice(0, 3).join(', '), newest_post: g.newest.slice(0, 10), industry: g.industry, size: g.size ? \"'\" + g.size : '',  // ' = keep \"51-200\" as text in Sheets\n website: g.website, linkedin_page: g.linkedin_page, example_job: g.example_job } }));"
+      },
+      "id": "c3000000-0000-4000-8000-000000000114",
+      "name": "Group by company",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Sheet ready').first().json.sheetId }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Hiring signals"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "week": "={{ $json.week }}",
+            "company": "={{ $json.company }}",
+            "open_roles": "={{ $json.open_roles }}",
+            "titles": "={{ $json.titles }}",
+            "locations": "={{ $json.locations }}",
+            "newest_post": "={{ $json.newest_post }}",
+            "industry": "={{ $json.industry }}",
+            "size": "={{ $json.size }}",
+            "website": "={{ $json.website }}",
+            "linkedin_page": "={{ $json.linkedin_page }}",
+            "example_job": "={{ $json.example_job }}",
+            "key": "={{ $json.key }}"
+          },
+          "matchingColumns": [
+            "key"
+          ],
+          "schema": [
+            {
+              "id": "week",
+              "displayName": "week",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "company",
+              "displayName": "company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "open_roles",
+              "displayName": "open_roles",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "titles",
+              "displayName": "titles",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "locations",
+              "displayName": "locations",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "newest_post",
+              "displayName": "newest_post",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "industry",
+              "displayName": "industry",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "size",
+              "displayName": "size",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "website",
+              "displayName": "website",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "linkedin_page",
+              "displayName": "linkedin_page",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "example_job",
+              "displayName": "example_job",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "key",
+              "displayName": "key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {
+          "cellFormat": "USER_ENTERED"
+        }
+      },
+      "id": "c3000000-0000-4000-8000-000000000115",
+      "name": "Add to Hiring signals tab",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2220,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "// One Slack message with the top companies.\nconst s = $('Settings').first().json;\nconst rows = $('Group by company').all().map(i => i.json);\nconst top = rows.slice(0, s.slackTop);\nconst lines = top.map((r, n) => `${n + 1}. *${r.company}*: ${r.open_roles} open roles (${r.titles})${r.size ? ' · ' + r.size : ''}${r.industry ? ' · ' + r.industry : ''}${r.linkedin_page ? ' · <' + r.linkedin_page + '|LinkedIn>' : ''}`);\nconst head = `*Hiring signals ${rows[0]?.week || ''}*: ${rows.length} companies with ${s.minOpenRoles}+ open roles in ${s.location} (last 7 days).`;\nreturn [{ json: { text: [head, ...lines, rows.length > top.length ? `…and ${rows.length - top.length} more in the Sheet.` : ''].filter(Boolean).join('\\n') } }];"
+      },
+      "id": "c3000000-0000-4000-8000-000000000116",
+      "name": "Build Slack digest",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2440,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $('Settings').first().json.slackChannel }}"
+        },
+        "text": "={{ $json.text }}",
+        "otherOptions": {}
+      },
+      "id": "c3000000-0000-4000-8000-000000000117",
+      "name": "Post to Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        2660,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://www.googleapis.com/drive/v3/files",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "=name = '{{ $('Settings').first().json.sheetName.replace(/'/g, \"\\\\'\") }}' and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false"
+            },
+            {
+              "name": "fields",
+              "value": "files(id,name,webViewLink)"
+            },
+            {
+              "name": "orderBy",
+              "value": "createdTime"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c-setup-1",
+      "name": "Find the Sheet by name",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        360,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e1",
+              "leftValue": "={{ ($json.files || []).length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c-setup-2",
+      "name": "Sheet exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        560,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "u1",
+              "name": "sheetId",
+              "value": "={{ $json.files[0].id }}",
+              "type": "string"
+            },
+            {
+              "id": "u2",
+              "name": "sheetUrl",
+              "value": "={{ $json.files[0].webViewLink }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c-setup-3",
+      "name": "Use the existing Sheet",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        780,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "spreadsheet",
+        "title": "={{ $('Settings').first().json.sheetName }}",
+        "sheetsUi": {
+          "sheetValues": [
+            {
+              "title": "Hiring signals"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c-setup-4",
+      "name": "Create the Sheet (first run)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        780,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $json.spreadsheetId }}/values:batchUpdate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ valueInputOption: 'RAW', data: [{range:\"'Hiring signals'!A1\",values:[[\"week\", \"company\", \"open_roles\", \"titles\", \"locations\", \"newest_post\", \"industry\", \"size\", \"website\", \"linkedin_page\", \"example_job\", \"key\"]]}] }) }}",
+        "options": {}
+      },
+      "id": "c-setup-5",
+      "name": "Write the header rows",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        980,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "w1",
+              "name": "sheetId",
+              "value": "={{ $('Create the Sheet (first run)').first().json.spreadsheetId }}",
+              "type": "string"
+            },
+            {
+              "id": "w2",
+              "name": "sheetUrl",
+              "value": "={{ $('Create the Sheet (first run)').first().json.spreadsheetUrl }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c-setup-6",
+      "name": "Use the new Sheet",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1180,
+        200
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "c-setup-7",
+      "name": "Sheet ready",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1420,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 0. Your Sheet (sets itself up)\nLooks for a Google Sheet called `sheetName` in your Drive. On the first run it isn't there, so the workflow creates it with all tabs and header rows. Every later run finds it by name and reuses it. Rename it in Drive? Change `sheetName` too.",
+        "height": 560,
+        "width": 1060,
+        "color": 5
+      },
+      "id": "c-setup-note",
+      "name": "Sticky Note - Sheet setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        320,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### If something goes wrong\n- **The Apify run fails** (bad input, timeout, cost cap reached): the node retries once, then the execution stops before the Sheet or Slack is touched.\n- **No company meets the minimum:** the Sheet gets no rows and no Slack message is posted.\n- **Duplicates:** posts are de-duplicated by job ID within a run and grouped by LinkedIn company page. Each row has a `key` (week + company). A second run in the same week updates those rows instead of adding them again, and posts the Slack digest again.\n- For the Monday schedule, set an error workflow in **Workflow settings** to get notified.",
+        "height": 240,
+        "width": 1060,
+        "color": 3
+      },
+      "id": "c-errors-note",
+      "name": "Sticky Note - Errors",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        320,
+        400
+      ]
+    }
+  ],
+  "connections": {
+    "Mondays at 8 AM": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run manually": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Find the Sheet by name",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search LinkedIn jobs": {
+      "main": [
+        [
+          {
+            "node": "Group by company",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Group by company": {
+      "main": [
+        [
+          {
+            "node": "Add to Hiring signals tab",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add to Hiring signals tab": {
+      "main": [
+        [
+          {
+            "node": "Build Slack digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Slack digest": {
+      "main": [
+        [
+          {
+            "node": "Post to Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find the Sheet by name": {
+      "main": [
+        [
+          {
+            "node": "Sheet exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Use the existing Sheet": {
+      "main": [
+        [
+          {
+            "node": "Sheet ready",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create the Sheet (first run)": {
+      "main": [
+        [
+          {
+            "node": "Write the header rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write the header rows": {
+      "main": [
+        [
+          {
+            "node": "Use the new Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Use the new Sheet": {
+      "main": [
+        [
+          {
+            "node": "Sheet ready",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sheet exists?": {
+      "main": [
+        [
+          {
+            "node": "Use the existing Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create the Sheet (first run)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sheet ready": {
+      "main": [
+        [
+          {
+            "node": "Search LinkedIn jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

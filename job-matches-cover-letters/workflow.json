@@ -1,0 +1,2910 @@
+{
+  "name": "Score new job ads against your CV and draft cover letters with Apify, AI and Google Sheets",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "d4000000-0000-4000-8000-000000000001",
+      "name": "Run manually",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 7
+            }
+          ]
+        }
+      },
+      "id": "d4000000-0000-4000-8000-000000000002",
+      "name": "Every day at 7 AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -60,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "s0",
+              "name": "cvText",
+              "value": "PASTE YOUR CV HERE: open your CV, select all, copy, and paste the plain text over this line. (Or leave this and put a Google Doc link in cvDocUrl.)",
+              "type": "string"
+            },
+            {
+              "id": "s1",
+              "name": "cvDocUrl",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "s2",
+              "name": "yourName",
+              "value": "YOUR NAME",
+              "type": "string"
+            },
+            {
+              "id": "s3",
+              "name": "language",
+              "value": "English",
+              "type": "string"
+            },
+            {
+              "id": "s4",
+              "name": "minScore",
+              "value": 70,
+              "type": "number"
+            },
+            {
+              "id": "s5",
+              "name": "letterStyle",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "s6",
+              "name": "letterWords",
+              "value": "180-250",
+              "type": "string"
+            },
+            {
+              "id": "s7",
+              "name": "createGmailDrafts",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "s8",
+              "name": "draftSubject",
+              "value": "Application: {title}",
+              "type": "string"
+            },
+            {
+              "id": "s9",
+              "name": "maxDraftsPerRun",
+              "value": 10,
+              "type": "number"
+            },
+            {
+              "id": "s10",
+              "name": "includeContactData",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "s11",
+              "name": "includeCompanyDetails",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "s12",
+              "name": "postedWithinDays",
+              "value": 2,
+              "type": "number"
+            },
+            {
+              "id": "s13",
+              "name": "maxJobsPerRun",
+              "value": 50,
+              "type": "number"
+            },
+            {
+              "id": "s14",
+              "name": "maxJobsPerCompany",
+              "value": 20,
+              "type": "number"
+            },
+            {
+              "id": "s15",
+              "name": "maxWaitMinutes",
+              "value": 30,
+              "type": "number"
+            },
+            {
+              "id": "s16",
+              "name": "apifyRunTimeoutMinutes",
+              "value": 240,
+              "type": "number"
+            },
+            {
+              "id": "s17",
+              "name": "maxCostPerRunUsd",
+              "value": 0.5,
+              "type": "number"
+            },
+            {
+              "id": "s18",
+              "name": "webhookUrl",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "s19",
+              "name": "sheetName",
+              "value": "Job matches - NanoScrape",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d4000000-0000-4000-8000-000000000003",
+      "name": "Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        140,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://www.googleapis.com/drive/v3/files",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "=name = '{{ $('Settings').first().json.sheetName.replace(/'/g, \"\\\\'\") }}' and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false"
+            },
+            {
+              "name": "fields",
+              "value": "files(id,name,webViewLink)"
+            },
+            {
+              "name": "orderBy",
+              "value": "createdTime"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d-setup-1",
+      "name": "Find the Sheet by name",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        360,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e1",
+              "leftValue": "={{ ($json.files || []).length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d-setup-2",
+      "name": "Sheet exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        580,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "u1",
+              "name": "sheetId",
+              "value": "={{ $json.files[0].id }}",
+              "type": "string"
+            },
+            {
+              "id": "u2",
+              "name": "sheetUrl",
+              "value": "={{ $json.files[0].webViewLink }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d-setup-3",
+      "name": "Use the existing Sheet",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        800,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "spreadsheet",
+        "title": "={{ $('Settings').first().json.sheetName }}",
+        "sheetsUi": {
+          "sheetValues": [
+            {
+              "title": "Jobs"
+            },
+            {
+              "title": "Job boards & keywords"
+            },
+            {
+              "title": "Company websites"
+            },
+            {
+              "title": "Career pages"
+            },
+            {
+              "title": "Runs"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d-setup-4",
+      "name": "Create the Sheet (first run)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        800,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $json.spreadsheetId }}/values:batchUpdate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ valueInputOption: 'RAW', data: [{range:\"'Jobs'!A1\",values:[[\"status\", \"score\", \"title\", \"company\", \"location\", \"apply_url\", \"contact_name\", \"contact_email\", \"contact_phone\", \"contact_position\", \"company_website\", \"company_email\", \"company_phone\", \"company_linkedin\", \"company_social_urls\", \"reason\", \"letter\", \"gmail_draft\", \"note\", \"found_at\", \"posted_date\", \"remote\", \"platform\", \"detected_career_page\", \"job_id\", \"job_id_aliases\"]]},{range:\"'Job boards & keywords'!A1\",values:[[\"keywords\", \"country\", \"location\", \"radiusKm\", \"platform\", \"active\"], [\"Software Engineer\", \"DE\", \"Berlin\", 25, \"\", \"yes\"], [\"Data Analyst\", \"GB\", \"London\", 25, \"\", \"no\"], [\"Product Manager\", \"US\", \"New York\", 25, \"\", \"no\"], [\"Informatiker\", \"CH\", \"Zürich\", 25, \"\", \"no\"], [\"Marketing Manager\", \"\", \"\", \"\", \"linkedin\", \"no\"]]},{range:\"'Company websites'!A1\",values:[[\"website\", \"keywords\", \"active\"], [\"https://www.roche.com\", \"\", \"no\"], [\"https://www.swisscom.ch\", \"\", \"no\"], [\"https://www.zalando.com\", \"\", \"no\"]]},{range:\"'Career pages'!A1\",values:[[\"career_page_url\", \"company\", \"keywords\", \"active\", \"found_from_website\"], [\"https://boards.greenhouse.io/anthropic\", \"Anthropic (Greenhouse)\", \"\", \"no\", \"\"], [\"https://jobs.lever.co/spotify\", \"Spotify (Lever)\", \"\", \"no\", \"\"], [\"https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite\", \"NVIDIA (Workday)\", \"\", \"no\", \"\"], [\"https://personio-gmbh.jobs.personio.de\", \"Personio (Personio)\", \"\", \"no\", \"\"], [\"https://jobs.smartrecruiters.com/BoschGroup\", \"Bosch (SmartRecruiters)\", \"\", \"no\", \"\"], [\"https://jobs.ashbyhq.com/ramp\", \"Ramp (Ashby)\", \"\", \"no\", \"\"], [\"https://everdrop.recruitee.com\", \"everdrop (Recruitee)\", \"\", \"no\", \"\"]]},{range:\"'Runs'!A1\",values:[[\"started_at\", \"search\", \"mode\", \"status\", \"jobs\", \"charged_usd\", \"run_url\", \"collected_at\", \"note\"]]}] }) }}",
+        "options": {}
+      },
+      "id": "d-setup-5",
+      "name": "Write the header rows",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1020,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $('Create the Sheet (first run)').first().json.spreadsheetId }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "fields",
+              "value": "sheets.properties(sheetId,title)"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d-setup-8",
+      "name": "Read the tab IDs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1240,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $('Create the Sheet (first run)').first().json.spreadsheetId }}:batchUpdate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ requests: [{ setDataValidation: { range: { sheetId: $json.sheets.find(s => s.properties.title === \"Jobs\").properties.sheetId, startRowIndex: 1, startColumnIndex: 0, endColumnIndex: 1 }, rule: { condition: { type: 'ONE_OF_LIST', values: [{\"userEnteredValue\": \"To review\"}, {\"userEnteredValue\": \"Letter drafted\"}, {\"userEnteredValue\": \"Applied\"}, {\"userEnteredValue\": \"Interview\"}, {\"userEnteredValue\": \"Offer\"}, {\"userEnteredValue\": \"Rejected\"}, {\"userEnteredValue\": \"No response / ghosted\"}, {\"userEnteredValue\": \"Not interested\"}] }, strict: false, showCustomUi: true } } }, { setDataValidation: { range: { sheetId: $json.sheets.find(s => s.properties.title === \"Job boards & keywords\").properties.sheetId, startRowIndex: 1, startColumnIndex: 5, endColumnIndex: 6 }, rule: { condition: { type: 'ONE_OF_LIST', values: [{\"userEnteredValue\": \"yes\"}, {\"userEnteredValue\": \"no\"}] }, strict: false, showCustomUi: true } } }, { setDataValidation: { range: { sheetId: $json.sheets.find(s => s.properties.title === \"Company websites\").properties.sheetId, startRowIndex: 1, startColumnIndex: 2, endColumnIndex: 3 }, rule: { condition: { type: 'ONE_OF_LIST', values: [{\"userEnteredValue\": \"yes\"}, {\"userEnteredValue\": \"no\"}] }, strict: false, showCustomUi: true } } }, { setDataValidation: { range: { sheetId: $json.sheets.find(s => s.properties.title === \"Career pages\").properties.sheetId, startRowIndex: 1, startColumnIndex: 3, endColumnIndex: 4 }, rule: { condition: { type: 'ONE_OF_LIST', values: [{\"userEnteredValue\": \"yes\"}, {\"userEnteredValue\": \"no\"}] }, strict: false, showCustomUi: true } } }, { updateSheetProperties: { properties: { sheetId: $json.sheets.find(s => s.properties.title === \"Jobs\").properties.sheetId, gridProperties: { frozenRowCount: 1 } }, fields: 'gridProperties.frozenRowCount' } }, { updateSheetProperties: { properties: { sheetId: $json.sheets.find(s => s.properties.title === \"Job boards & keywords\").properties.sheetId, gridProperties: { frozenRowCount: 1 } }, fields: 'gridProperties.frozenRowCount' } }, { updateSheetProperties: { properties: { sheetId: $json.sheets.find(s => s.properties.title === \"Company websites\").properties.sheetId, gridProperties: { frozenRowCount: 1 } }, fields: 'gridProperties.frozenRowCount' } }, { updateSheetProperties: { properties: { sheetId: $json.sheets.find(s => s.properties.title === \"Career pages\").properties.sheetId, gridProperties: { frozenRowCount: 1 } }, fields: 'gridProperties.frozenRowCount' } }, { updateSheetProperties: { properties: { sheetId: $json.sheets.find(s => s.properties.title === \"Runs\").properties.sheetId, gridProperties: { frozenRowCount: 1 } }, fields: 'gridProperties.frozenRowCount' } }, { repeatCell: { range: { sheetId: $json.sheets.find(s => s.properties.title === \"Jobs\").properties.sheetId, startRowIndex: 1 }, cell: { userEnteredFormat: { wrapStrategy: 'CLIP' } }, fields: 'userEnteredFormat.wrapStrategy' } }, { updateDimensionProperties: { range: { sheetId: $json.sheets.find(s => s.properties.title === \"Jobs\").properties.sheetId, dimension: 'ROWS', startIndex: 1, endIndex: 1000 }, properties: { pixelSize: 21 }, fields: 'pixelSize' } }, { updateDimensionProperties: { range: { sheetId: $json.sheets.find(s => s.properties.title === \"Jobs\").properties.sheetId, dimension: 'COLUMNS', startIndex: 0, endIndex: 1 }, properties: { pixelSize: 150 }, fields: 'pixelSize' } }, { updateDimensionProperties: { range: { sheetId: $json.sheets.find(s => s.properties.title === \"Jobs\").properties.sheetId, dimension: 'COLUMNS', startIndex: 1, endIndex: 2 }, properties: { pixelSize: 60 }, fields: 'pixelSize' } }, { updateDimensionProperties: { range: { sheetId: $json.sheets.find(s => s.properties.title === \"Jobs\").properties.sheetId, dimension: 'COLUMNS', startIndex: 2, endIndex: 3 }, properties: { pixelSize: 280 }, fields: 'pixelSize' } }, { updateDimensionProperties: { range: { sheetId: $json.sheets.find(s => s.properties.title === \"Jobs\").properties.sheetId, dimension: 'COLUMNS', startIndex: 3, endIndex: 4 }, properties: { pixelSize: 180 }, fields: 'pixelSize' } }, { updateDimensionProperties: { range: { sheetId: $json.sheets.find(s => s.properties.title === \"Jobs\").properties.sheetId, dimension: 'COLUMNS', startIndex: 4, endIndex: 5 }, properties: { pixelSize: 140 }, fields: 'pixelSize' } }, { updateDimensionProperties: { range: { sheetId: $json.sheets.find(s => s.properties.title === \"Jobs\").properties.sheetId, dimension: 'COLUMNS', startIndex: 5, endIndex: 6 }, properties: { pixelSize: 200 }, fields: 'pixelSize' } }, { updateDimensionProperties: { range: { sheetId: $json.sheets.find(s => s.properties.title === \"Jobs\").properties.sheetId, dimension: 'COLUMNS', startIndex: 6, endIndex: 7 }, properties: { pixelSize: 150 }, fields: 'pixelSize' } }, { updateDimensionProperties: { range: { sheetId: $json.sheets.find(s => s.properties.title === \"Jobs\").properties.sheetId, dimension: 'COLUMNS', startIndex: 7, endIndex: 8 }, properties: { pixelSize: 200 }, fields: 'pixelSize' } }, { updateDimensionProperties: { range: { sheetId: $json.sheets.find(s => s.properties.title === \"Jobs\").properties.sheetId, dimension: 'COLUMNS', startIndex: 8, endIndex: 9 }, properties: { pixelSize: 140 }, fields: 'pixelSize' } }, { updateDimensionProperties: { range: { sheetId: $json.sheets.find(s => s.properties.title === \"Jobs\").properties.sheetId, dimension: 'COLUMNS', startIndex: 9, endIndex: 10 }, properties: { pixelSize: 150 }, fields: 'pixelSize' } }, { updateDimensionProperties: { range: { sheetId: $json.sheets.find(s => s.properties.title === \"Jobs\").properties.sheetId, dimension: 'COLUMNS', startIndex: 10, endIndex: 11 }, properties: { pixelSize: 200 }, fields: 'pixelSize' } }, { updateDimensionProperties: { range: { sheetId: $json.sheets.find(s => s.properties.title === \"Jobs\").properties.sheetId, dimension: 'COLUMNS', startIndex: 11, endIndex: 12 }, properties: { pixelSize: 200 }, fields: 'pixelSize' } }, { updateDimensionProperties: { range: { sheetId: $json.sheets.find(s => s.properties.title === \"Jobs\").properties.sheetId, dimension: 'COLUMNS', startIndex: 12, endIndex: 13 }, properties: { pixelSize: 140 }, fields: 'pixelSize' } }, { updateDimensionProperties: { range: { sheetId: $json.sheets.find(s => s.properties.title === \"Jobs\").properties.sheetId, dimension: 'COLUMNS', startIndex: 13, endIndex: 14 }, properties: { pixelSize: 200 }, fields: 'pixelSize' } }, { updateDimensionProperties: { range: { sheetId: $json.sheets.find(s => s.properties.title === \"Jobs\").properties.sheetId, dimension: 'COLUMNS', startIndex: 14, endIndex: 15 }, properties: { pixelSize: 220 }, fields: 'pixelSize' } }, { updateDimensionProperties: { range: { sheetId: $json.sheets.find(s => s.properties.title === \"Jobs\").properties.sheetId, dimension: 'COLUMNS', startIndex: 15, endIndex: 16 }, properties: { pixelSize: 320 }, fields: 'pixelSize' } }, { updateDimensionProperties: { range: { sheetId: $json.sheets.find(s => s.properties.title === \"Jobs\").properties.sheetId, dimension: 'COLUMNS', startIndex: 16, endIndex: 17 }, properties: { pixelSize: 320 }, fields: 'pixelSize' } }, { updateDimensionProperties: { range: { sheetId: $json.sheets.find(s => s.properties.title === \"Jobs\").properties.sheetId, dimension: 'COLUMNS', startIndex: 17, endIndex: 18 }, properties: { pixelSize: 120 }, fields: 'pixelSize' } }, { updateDimensionProperties: { range: { sheetId: $json.sheets.find(s => s.properties.title === \"Jobs\").properties.sheetId, dimension: 'COLUMNS', startIndex: 18, endIndex: 19 }, properties: { pixelSize: 220 }, fields: 'pixelSize' } }] }) }}",
+        "options": {}
+      },
+      "id": "d-setup-9",
+      "name": "Add the dropdowns",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1460,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "w1",
+              "name": "sheetId",
+              "value": "={{ $('Create the Sheet (first run)').first().json.spreadsheetId }}",
+              "type": "string"
+            },
+            {
+              "id": "w2",
+              "name": "sheetUrl",
+              "value": "={{ $('Create the Sheet (first run)').first().json.spreadsheetUrl }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d-setup-6",
+      "name": "Use the new Sheet",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1680,
+        200
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "d-setup-7",
+      "name": "Sheet ready",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1900,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 0. Your Sheet (sets itself up)\nLooks for a Google Sheet called `sheetName` in your Drive. On the first run it isn't there, so the workflow creates it with **5 tabs** and header rows:\n- **Jobs**: one row per job (output). The **status** column has a dropdown: To review, Letter drafted, Applied, Interview, Offer, Rejected, No response / ghosted, Not interested.\n- **Job boards & keywords**, **Company websites**, **Career pages**: your searches (input, with example rows). `active` = no skips a row.\n- **Runs**: a log of every Apify run (started_at, search, mode, status, jobs, charged_usd, run_url, collected_at, note). The workflow reads it to collect runs that were still running last time.\n\nThe workflow only writes the first status (\"Letter drafted\" or \"To review\") when it adds a job. It never changes a status afterwards, so yours stay. Later runs find the Sheet by name. Rename it in Drive? Change `sheetName` too.",
+        "height": 560,
+        "width": 1760,
+        "color": 5
+      },
+      "id": "d-setup-note",
+      "name": "Sticky Note - Sheet setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        320,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Sheet ready').first().json.sheetId }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Jobs"
+        },
+        "options": {}
+      },
+      "id": "d4000000-0000-4000-8000-000000000010",
+      "name": "Read Jobs tab",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2000,
+        80
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// One item: every job ID already in the Sheet (incl. aliases from other job boards), so a job is scored once.\nconst seen = [];\nfor (const { json: r } of $input.all()) {\n  for (const v of [r.job_id, ...String(r.job_id_aliases || '').split(',')]) {\n    const id = String(v || '').trim();\n    if (id) seen.push(id);\n  }\n}\nreturn [{ json: { seen } }];"
+      },
+      "id": "d4000000-0000-4000-8000-000000000011",
+      "name": "Known job IDs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2200,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $('Settings').first().json.cvDocUrl }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d4000000-0000-4000-8000-000000000012",
+      "name": "CV in a Google Doc?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2400,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "documentURL": "={{ $('Settings').first().json.cvDocUrl }}"
+      },
+      "id": "d4000000-0000-4000-8000-000000000013",
+      "name": "Read CV from Google Docs",
+      "type": "n8n-nodes-base.googleDocs",
+      "typeVersion": 2,
+      "position": [
+        2620,
+        20
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Your CV as plain text: from the Google Doc if cvDocUrl is set, otherwise from Settings → cvText (the only two ways to provide it).\n// Stops here (before any Apify cost) if there is no CV yet.\nconst s = $('Settings').first().json;\nlet cv = String(s.cvText || '');\nif (String(s.cvDocUrl || '').trim()) {\n  // The Docs node ships deactivated (a workflow can only be activated when every active node has its credential). A deactivated node passes its input through unchanged: no `content`.\n  const doc = $('Read CV from Google Docs').first().json;\n  if (!('content' in doc)) throw new Error(\"cvDocUrl is set: activate the node 'Read CV from Google Docs' (right-click > Activate) and connect Google Docs. Or empty cvDocUrl and paste your CV into cvText.\");\n  cv = String(doc.content || '');\n}\ncv = cv.trim();\nif (!cv || cv.startsWith('PASTE YOUR CV')) throw new Error('No CV yet. Open the Settings node and either paste your CV as plain text into cvText (open your CV, select all, copy, paste), or put the link of a Google Doc that contains your CV into cvDocUrl. Then run again.');\nreturn [{ json: { cv: cv.slice(0, 12000), seen: $('Known job IDs').first().json.seen } }];"
+      },
+      "id": "d4000000-0000-4000-8000-000000000014",
+      "name": "CV ready",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2840,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Sheet ready').first().json.sheetId }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Job boards & keywords"
+        },
+        "options": {}
+      },
+      "id": "d4000000-0000-4000-8000-000000000040",
+      "name": "Read keyword rows",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        3060,
+        80
+      ],
+      "alwaysOutputData": true,
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Sheet ready').first().json.sheetId }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Company websites"
+        },
+        "options": {}
+      },
+      "id": "d4000000-0000-4000-8000-000000000041",
+      "name": "Read company websites",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        3280,
+        80
+      ],
+      "alwaysOutputData": true,
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Sheet ready').first().json.sheetId }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Career pages"
+        },
+        "options": {}
+      },
+      "id": "d4000000-0000-4000-8000-000000000042",
+      "name": "Read career pages",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        3500,
+        80
+      ],
+      "alwaysOutputData": true,
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Sheet ready').first().json.sheetId }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Runs"
+        },
+        "options": {}
+      },
+      "id": "d4000000-0000-4000-8000-000000000044",
+      "name": "Read Runs tab",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        3700,
+        80
+      ],
+      "alwaysOutputData": true,
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Drop jobs already in the Sheet (by job_id and its aliases), duplicates and rows without a title.\n// Builds the scoring prompt for each new job.\nconst s = $('Settings').first().json;\nconst { cv, seen } = $('CV ready').first().json;\nconst known = new Set(seen);\n// Only rows that came from a \"Company websites\" entry (companyUrls) tell you something new: the career page job-feed detected.\nconst fromCompanyUrl = j => (j.input_refs || []).some(r => r && r.source === 'companyUrls');\nconst language = String(s.language || '').trim() || 'English';\n// Contact columns: only what job-feed emitted (the job ad's contacts[] and the company.* fields). Blank when absent, never guessed.\n// A text starting with = + - @ gets a leading apostrophe so Google Sheets keeps it as text (phone numbers like +41 ...).\nconst safe = v => { v = String(v == null ? '' : v).trim(); return /^[=+\\-@]/.test(v) ? \"'\" + v : v; };\nconst uniq = a => [...new Set(a.map(x => String(x || '').trim()).filter(Boolean))];\n// company_website comes ONLY from job-feed's company fields (website, url, domain), never from the career page, the job system or the careerSites input.\n// A value that is that kind of address (same as ats_url / career_page_url / an input_refs url, or a known job-system host) is dropped: blank beats a wrong site.\nconst ATS_HOST = /(^|\\.)(greenhouse\\.io|lever\\.co|ashbyhq\\.com|myworkdayjobs\\.com|workday\\.com|personio\\.(de|com)|smartrecruiters\\.com|workable\\.com|recruitee\\.com|teamtailor\\.com|jobvite\\.com|bamboohr\\.com|icims\\.com|breezy\\.hr|join\\.com|softgarden\\.io|successfactors\\.(com|eu)|taleo\\.net|eightfold\\.ai|dayforcehcm\\.com|rippling\\.com|gohire\\.io)$/i;\nconst hostOf = u => String(u || '').trim().toLowerCase().replace(/^https?:\\/\\//, '').replace(/^www\\./, '').split(/[/?#]/)[0];\nconst normU = u => String(u || '').trim().toLowerCase().replace(/^https?:\\/\\//, '').replace(/^www\\./, '').replace(/\\/+$/, '');\nconst ownSite = (j, co) => {\n  const boards = new Set([j.ats_url, j.career_page_url, ...(j.input_refs || []).map(r => r && r.url)].map(normU).filter(Boolean));\n  for (const c of [co.website, co.url, co.domain]) {\n    const v = String(c || '').trim();\n    if (!v || boards.has(normU(v)) || ATS_HOST.test(hostOf(v))) continue;\n    return /^https?:\\/\\//i.test(v) ? v : 'https://' + v;\n  }\n  return '';\n};\nconst contactFields = j => {\n  const cs = Array.isArray(j.contacts) ? j.contacts : [];\n  const c0 = cs[0] || {};\n  const co = j.company || {};\n  const soc = (co.social_urls && typeof co.social_urls === 'object') ? co.social_urls : {};\n  const linkedinKey = Object.keys(soc).find(k => /linkedin/i.test(k));\n  const others = Object.entries(soc).filter(([k, v]) => v && k !== linkedinKey).map(([k, v]) => k + ': ' + (Array.isArray(v) ? v[0] : v));\n  return {\n    contact_name: safe([c0.first_name, c0.last_name].filter(Boolean).join(' ')),\n    contact_email: safe(uniq(cs.map(c => c && c.email)).join(', ')),\n    contact_phone: safe(uniq(cs.map(c => c && c.phone)).join(', ')),\n    contact_position: safe(c0.position),\n    company_website: safe(ownSite(j, co)),\n    company_email: safe(co.email),\n    company_phone: safe(co.phone),\n    company_linkedin: safe(linkedinKey ? (Array.isArray(soc[linkedinKey]) ? soc[linkedinKey][0] : soc[linkedinKey]) : ''),\n    company_social_urls: safe(others.join(', ')),\n  };\n};\n// Second dedupe key: the apply URL (lower case, no protocol/www/fragment, no trailing slash, no trailing /apply or /application; the query string stays minus tracking parameters like utm_*, inv, ref, lang, sorted).\n// The same job read through a website and through its career page gets different job IDs but the same URL. Stored in job_id_aliases as \"url:<key>\".\nconst TRACK = /^(utm_.*|mc_.*|source|src|ref|referrer|inv|trk|trackingid|refid|gclid|fbclid|campaign|medium|showapplicationform|dialog|locale|lang)$/;\nconst urlKey = u => {\n  const [pathAndQuery] = String(u || '').trim().toLowerCase().replace(/^https?:\\/\\//, '').replace(/^www\\./, '').split('#');\n  const [path0, ...qs] = pathAndQuery.split('?');\n  const path = path0.replace(/\\/+$/, '').replace(/\\/(apply|application)$/, '').replace(/\\/+$/, '');\n  // The query string stays (job boards identify the job with ?id=...), minus tracking parameters, sorted.\n  const q = qs.join('?').split('&').filter(Boolean).filter(x => !TRACK.test(x.split('=')[0])).sort().join('&');\n  return path.includes('/') ? 'url:' + path + (q ? '?' + q : '') : '';\n};\nconst out = [];\nfor (const { json: j } of $input.all()) {\n  if (!j.job_id || !j.title) continue;\n  const uk = urlKey(j.apply_url);\n  const ids = [j.job_id, ...(j.job_id_aliases || []), ...(uk ? [uk] : [])].map(String);\n  if (ids.some(id => known.has(id))) continue;\n  ids.forEach(id => known.add(id));\n  const company = (j.company && j.company.name) || '';\n  const loc = j.location || {};\n  const description = String(j.description_text || '').trim();\n  const job = {\n    job_id: String(j.job_id),\n    job_id_aliases: [...(j.job_id_aliases || []), ...(uk ? [uk] : [])].join(', '),\n    found_at: $now.toFormat('yyyy-LL-dd HH:mm'),\n    title: j.title,\n    company,\n    location: [loc.city, loc.country].filter(Boolean).join(', '),\n    remote: loc.remote ? 'yes' : '',\n    posted_date: String(j.posted_date || '').slice(0, 10),\n    platform: j._platform || '',\n    apply_url: j.apply_url || '',\n    detected_career_page: fromCompanyUrl(j) ? String(j.ats_url || j.career_page_url || '') : '',\n    hasDescription: description.length > 0,\n    ...contactFields(j),\n    gmail_draft: '',\n  };\n  job.scorePrompt = `You compare one job ad with one CV. Reply with JSON only, no other text: {\"score\": <0-100>, \"reason\": \"<two short lines>\"}.\nScore how well the CV matches the job's must-have requirements (skills, experience, languages, location). 90+ = strong match, 70 = worth applying, below 50 = poor fit. Do not invent experience the CV does not show.\n${description ? '' : 'The job description is missing: score from the title and company only and say so in the reason.'}\nThe CV and the job ad can be in any language. Write the reason in ${language}.\n\nCV:\n${cv}\n\nJob: ${job.title} at ${company || 'unknown company'}, ${job.location || 'location not given'}\nDescription:\n${description ? description.slice(0, 6000) : '(none)'}`;\n  job.description = description.slice(0, 6000);\n  out.push({ json: job });\n  if (out.length >= s.maxJobsPerRun) break;\n}\n// No new jobs: one marker item, so the run is still marked collected (the IF after this node sends it past the AI steps).\nreturn out.length ? out : [{ json: { noNewJobs: true } }];"
+      },
+      "id": "d4000000-0000-4000-8000-000000000016",
+      "name": "Keep unseen jobs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7200,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.scorePrompt }}",
+        "hasOutputParser": false,
+        "batching": {}
+      },
+      "id": "d4000000-0000-4000-8000-000000000017",
+      "name": "Score the match (AI)",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        7440,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "options": {}
+      },
+      "id": "d4000000-0000-4000-8000-000000000018",
+      "name": "OpenAI model (scoring)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        7440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Read the model's JSON. If it can't be parsed, score 0 and keep the raw answer in the reason.\nconst job = $('Keep unseen jobs').item.json;\nconst s = $('Settings').first().json;\nconst raw = String($json.text || $json.output || '');\nlet score = 0, reason = raw.slice(0, 300);\ntry {\n  const m = raw.match(/\\{[\\s\\S]*\\}/);\n  const r = JSON.parse(m ? m[0] : raw);\n  score = Math.max(0, Math.min(100, Math.round(Number(r.score) || 0)));\n  reason = String(r.reason || '').trim();\n} catch (e) {}\nconst language = String(s.language || '').trim() || 'English';\nconst words = String(s.letterWords || '').trim() || '180-250';\nconst style = String(s.letterStyle || '').trim();\nconst cv = $('CV ready').first().json.cv;\nconst letterPrompt = `Write a cover letter draft in ${language} for this job. The whole letter is in ${language}, even if the CV or the job ad is in another language. ${words} words. Use only facts from the CV: do not claim any skill, employer, degree, number or experience that is not in the CV, even if the job asks for it. Don't make a skill bigger than the CV states (\"REST APIs\" does not become \"API design\"). Where a short fact is missing (a date, an amount, a name), put it in square brackets, written in ${language}, inside a natural, complete sentence, for example \"I could start on [start date].\", [salary expectation] or [contact person] (translate these examples into ${language}). Never put a whole claim or commitment in brackets (availability, willingness to relocate, skills): leave it out instead. At most 3 bracketed items. Never write the word \"placeholder\" or its translation in ${language}. No address block, no date, no subject line. Close with the usual polite closing phrase in ${language}, followed by ${s.yourName}. Reply with the letter text only.${style ? `\nStyle: ${style}` : ''}\n\nCV:\n${cv}\n\nJob: ${job.title} at ${job.company}, ${job.location}\nJob description:\n${job.description}`;\nreturn { json: { ...job, score, reason, letterPrompt } };",
+        "mode": "runOnceForEachItem"
+      },
+      "id": "d4000000-0000-4000-8000-000000000019",
+      "name": "Read the score",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7680,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "w1",
+              "leftValue": "={{ $json.score }}",
+              "rightValue": "={{ $('Settings').first().json.minScore }}",
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            },
+            {
+              "id": "w2",
+              "leftValue": "={{ $json.hasDescription }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d4000000-0000-4000-8000-000000000020",
+      "name": "Worth a letter?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        7900,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.letterPrompt }}",
+        "hasOutputParser": false,
+        "batching": {}
+      },
+      "id": "d4000000-0000-4000-8000-000000000021",
+      "name": "Write the cover letter (AI)",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        8140,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "options": {}
+      },
+      "id": "d4000000-0000-4000-8000-000000000022",
+      "name": "OpenAI model (letters)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        8140,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Attach the drafted letter to its job. The status is only ever written here, once, when the row is created.\nconst j = $('Worth a letter?').item.json;\nconst letter = String($json.text || $json.output || '').trim();\nreturn { json: { ...j, letter, note: letter ? '' : 'the AI returned no letter', status: letter ? 'Letter drafted' : 'To review' } };",
+        "mode": "runOnceForEachItem"
+      },
+      "id": "d4000000-0000-4000-8000-000000000023",
+      "name": "Attach the letter",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        8380,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Below the minimum score or no job description: no letter is drafted. The reason goes to the note column.\nconst j = $json;\nconst note = !j.hasDescription ? 'no description, letter not drafted' : `score below ${$('Settings').first().json.minScore}, letter not drafted`;\nreturn { json: { ...j, letter: '', note, status: 'To review' } };",
+        "mode": "runOnceForEachItem"
+      },
+      "id": "d4000000-0000-4000-8000-000000000024",
+      "name": "No letter",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        8380,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Sheet ready').first().json.sheetId }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Jobs"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "={{ $json.status }}",
+            "score": "={{ $json.score }}",
+            "title": "={{ $json.title }}",
+            "company": "={{ $json.company }}",
+            "location": "={{ $json.location }}",
+            "apply_url": "={{ $json.apply_url }}",
+            "contact_name": "={{ $json.contact_name }}",
+            "contact_email": "={{ $json.contact_email }}",
+            "contact_phone": "={{ $json.contact_phone }}",
+            "contact_position": "={{ $json.contact_position }}",
+            "company_website": "={{ $json.company_website }}",
+            "company_email": "={{ $json.company_email }}",
+            "company_phone": "={{ $json.company_phone }}",
+            "company_linkedin": "={{ $json.company_linkedin }}",
+            "company_social_urls": "={{ $json.company_social_urls }}",
+            "reason": "={{ $json.reason }}",
+            "letter": "={{ $json.letter }}",
+            "gmail_draft": "={{ $json.gmail_draft }}",
+            "note": "={{ $json.note }}",
+            "found_at": "={{ $json.found_at }}",
+            "posted_date": "={{ $json.posted_date }}",
+            "remote": "={{ $json.remote }}",
+            "platform": "={{ $json.platform }}",
+            "detected_career_page": "={{ $json.detected_career_page }}",
+            "job_id": "={{ $json.job_id }}",
+            "job_id_aliases": "={{ $json.job_id_aliases }}"
+          },
+          "schema": [
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "score",
+              "displayName": "score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "title",
+              "displayName": "title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "company",
+              "displayName": "company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "location",
+              "displayName": "location",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "apply_url",
+              "displayName": "apply_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "contact_name",
+              "displayName": "contact_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "contact_email",
+              "displayName": "contact_email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "contact_phone",
+              "displayName": "contact_phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "contact_position",
+              "displayName": "contact_position",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "company_website",
+              "displayName": "company_website",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "company_email",
+              "displayName": "company_email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "company_phone",
+              "displayName": "company_phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "company_linkedin",
+              "displayName": "company_linkedin",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "company_social_urls",
+              "displayName": "company_social_urls",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "reason",
+              "displayName": "reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "letter",
+              "displayName": "letter",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "gmail_draft",
+              "displayName": "gmail_draft",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "note",
+              "displayName": "note",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "found_at",
+              "displayName": "found_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "posted_date",
+              "displayName": "posted_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "remote",
+              "displayName": "remote",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "platform",
+              "displayName": "platform",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "detected_career_page",
+              "displayName": "detected_career_page",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "job_id",
+              "displayName": "job_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "job_id_aliases",
+              "displayName": "job_id_aliases",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {
+          "cellFormat": "USER_ENTERED"
+        }
+      },
+      "id": "d4000000-0000-4000-8000-000000000025",
+      "name": "Write to Jobs tab",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        10060,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Reads the three input tabs and builds the job-feed input(s). A row with active = no is skipped; empty tabs are fine.\nconst s = $('Settings').first().json;\n// Every input cell is cleaned first: tabs, line breaks and runs of spaces become ONE space, then trimmed. In keywords and country a line break still separates entries.\nconst clean = v => String(v == null ? '' : v).replace(/\\s+/g, ' ').trim();\nconst cleanRow = r => Object.fromEntries(Object.entries(r).map(([k, v]) => [k, typeof v !== 'string' ? v : /^(keywords|country)$/.test(k) ? v.split(/\\r?\\n/).map(clean).filter(Boolean).join(', ') : clean(v)]));\nconst on = r => !/^\\s*(no|n|false|0|off|nein)\\s*$/i.test(String(r.active == null ? '' : r.active));\nconst rows = name => $(name).all().map(i => cleanRow(i.json)).filter(on);\nconst list = v => String(v == null ? '' : v).split(/[,;\\n]/).map(x => x.trim()).filter(Boolean);\nconst full = u => (u = String(u || '').trim()) && (/^https?:\\/\\//i.test(u) ? u : 'https://' + u);\nconst bool = (v, d) => v == null || v === '' ? d : !/^\\s*(false|no|0|off|nein)\\s*$/i.test(String(v));\nconst common = { postedWithinDays: Number(s.postedWithinDays) || 0, onlyNewJobs: true, includeJobDetails: true, maxResultsTotal: Number(s.maxJobsPerRun) || 50,\n  includeContactData: bool(s.includeContactData, true), includeCompanyDetails: bool(s.includeCompanyDetails, false) };\nconst openRuns = () => $('Read Runs tab').all().map(i => i.json)\n  .filter(r => /^(RUNNING|READY)$/i.test(String(r.status || '').trim()) && String(r.run_url || '').trim())\n  .map(r => ({ id: String(r.run_url).trim().replace(/\\/+$/, '').split('/').pop(), run_url: String(r.run_url).trim(), search: String(r.search || ''), mode: String(r.mode || ''), status: String(r.status).trim().toUpperCase() }));\n// Set when this execution was started by the \"Apify run finished\" webhook: only that run is collected, and nothing new is started.\nlet hookRun = '';\ntry { hookRun = String($('Apify run finished').first().json.body.runId || ''); } catch (e) {}\nconst out = [];\n\n// 1. Job boards & keywords: rows with the same country, location, radius and platform share one search (one job-feed run).\nconst groups = new Map();\nrows('Read keyword rows').forEach((r, n) => {\n  const keywords = list(r.keywords);\n  if (!keywords.length) return;\n  const platform = String(r.platform || '').trim().toLowerCase();\n  const countries = list(r.country).map(c => c.toUpperCase());\n  if (!platform && !countries.length) throw new Error(`Row ${n + 2} of the tab \"Job boards & keywords\" needs a country (for example CH, DE or GB) or a platform (for example linkedin).`);\n  const location = String(r.location || '').trim();\n  const radiusKm = Number(r.radiusKm) > 0 ? Number(r.radiusKm) : 0;\n  const key = [platform ? '' : countries.join('+'), platform, location, radiusKm].join('|');\n  if (!groups.has(key)) groups.set(key, { platform, countries, location, radiusKm, keywords: [] });\n  keywords.forEach(k => { if (!groups.get(key).keywords.includes(k)) groups.get(key).keywords.push(k); });\n});\nfor (const g of groups.values()) {\n  out.push({ mode: 'boards', search: [g.platform || g.countries.join('+'), g.keywords.join(', '), g.location].filter(Boolean).join(' / '),\n    body: { ...common, excludeAgencies: true, keywords: g.keywords,\n    ...(g.platform ? { platforms: [g.platform] } : { countries: g.countries }),\n    ...(g.location ? { location: g.location } : {}), ...(g.radiusKm ? { radiusKm: g.radiusKm } : {}) } });\n}\n\n// 2. Company websites (job-feed finds the career page) and 3. Career pages (job system known, cheaper).\n// The optional keywords column of each row filters that company's jobs (blank = all its jobs, still capped). job-feed's keywords are global per run,\n// so rows with the same keyword set share one run; the board keywords above are NOT used here.\nconst normSite = u => String(u || '').trim().toLowerCase().replace(/^https?:\\/\\//, '').replace(/^www\\./, '').replace(/\\/+$/, '');\n// A website that already has an ACTIVE Career pages row (found_from_website) is read through that career page instead: cheaper and faster.\n// Set that career row to active = no and the website is used again.\nconst handed = new Set(rows('Read career pages').map(r => normSite(r.found_from_website)).filter(Boolean));\nconst seen = new Set();\nconst compGroups = new Map();\n// One run per mode (websites / career pages) and keyword set: job-feed's maxResultsTotal fills in arrival order, so mixing modes (or many companies under a small cap) would starve some companies.\nconst compGroup = (kind, kws) => { const k = kind + '#' + kws.map(x => x.toLowerCase()).sort().join('|'); if (!compGroups.has(k)) compGroups.set(k, { keywords: kws, companyUrls: [], careerSites: [] }); return compGroups.get(k); };\nrows('Read company websites').forEach(r => { const u = full(r.website); if (u && !handed.has(normSite(u)) && !seen.has(u.toLowerCase())) { seen.add(u.toLowerCase()); compGroup('w', list(r.keywords)).companyUrls.push(u); } });\nrows('Read career pages').forEach(r => { const u = full(r.career_page_url); if (u && !seen.has(u.toLowerCase())) { seen.add(u.toLowerCase()); const company = String(r.company || '').trim(); compGroup('c', list(r.keywords)).careerSites.push(company ? { url: u, company } : { url: u }); } });\nfor (const g of compGroups.values()) {\n  const host = u => String(u).replace(/^https?:\\/\\//, '').replace(/^www\\./, '').split(/[/?#]/)[0];\n  const names = [...g.companyUrls.map(host), ...g.careerSites.map(c => c.company || host(c.url))];\n  out.push({ mode: g.companyUrls.length ? 'websites' : 'career pages',\n    search: names.slice(0, 5).join(', ') + (names.length > 5 ? ' (+' + (names.length - 5) + ')' : '') + (g.keywords.length ? ' | ' + g.keywords.join(', ') : ''),\n    // Each company gets up to maxJobsPerCompany; the run total is exactly that times the number of companies, so the total cap never starves a company.\n    body: { ...common, maxResultsPerCompany: Number(s.maxJobsPerCompany) || 20, maxResultsTotal: (Number(s.maxJobsPerCompany) || 20) * (g.companyUrls.length + g.careerSites.length),\n    ...(g.keywords.length ? { keywords: g.keywords } : {}),\n    ...(g.companyUrls.length ? { companyUrls: g.companyUrls } : {}), ...(g.careerSites.length ? { careerSites: g.careerSites } : {}) } });\n}\n// Nothing is started here. A search whose previous run is still RUNNING (Runs tab) is skipped. A webhook execution only collects.\nconst busy = new Set(openRuns().map(r => r.mode + '|' + r.search));\nreturn [{ json: { starts: hookRun ? [] : out.filter(x => !busy.has(x.mode + '|' + x.search)) } }];"
+      },
+      "id": "d4000000-0000-4000-8000-000000000060",
+      "name": "Build the searches",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3900,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "a1",
+              "leftValue": "={{ $json.starts.length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d4000000-0000-4000-8000-000000000061",
+      "name": "Anything to start? (job-feed)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        4120,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// One Apify run per search. The start query is built here (timeout, memory, cost cap, optional ad-hoc webhook).\nconst s = $('Settings').first().json;\nconst hook = String(s.webhookUrl || '').trim();\nconst b64 = t => typeof Buffer !== 'undefined' ? Buffer.from(t, 'utf8').toString('base64') : btoa(unescape(encodeURIComponent(t)));\nconst query = { waitForFinish: 0, timeout: Math.round((Number(s.apifyRunTimeoutMinutes) || 240) * 60), memory: 1024, maxTotalChargeUsd: Number(s.maxCostPerRunUsd) || 0.5 };\nif (hook) query.webhooks = b64(JSON.stringify([{ eventTypes: ['ACTOR.RUN.SUCCEEDED', 'ACTOR.RUN.FAILED', 'ACTOR.RUN.ABORTED', 'ACTOR.RUN.TIMED_OUT'],\n  requestUrl: hook, payloadTemplate: '{\"runId\": {{resource.id}}, \"status\": {{resource.status}}}' }]));\nreturn $input.first().json.starts.map(x => ({ json: { ...x, query } }));"
+      },
+      "id": "d4000000-0000-4000-8000-000000000062",
+      "name": "One item per job-feed search",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4340,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/santamaria-automations~job-feed/runs",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "apifyApi",
+        "sendQuery": true,
+        "specifyQuery": "json",
+        "jsonQuery": "={{ JSON.stringify($json.query) }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "id": "d4000000-0000-4000-8000-000000000063",
+      "name": "Start job-feed run (no waiting)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4560,
+        80
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// One Runs-tab row per started run. A run that could not be started is logged too (status FAILED, with the reason).\nconst src = $('One item per job-feed search').all();\nconst now = $now.toFormat('yyyy-LL-dd HH:mm');\nreturn $input.all().map((it, i) => {\n  const r = (it.json && it.json.data) || it.json || {}, s = (src[i] || { json: {} }).json;\n  const e0 = (it.json && it.json.error) || r.error;\n  const err = e0 ? String((e0 && (e0.message || e0.description)) || e0) : (r.id ? '' : String(r.message || 'no run ID returned'));\n  return { json: { started_at: now, search: s.search || '', mode: s.mode || '', status: r.id ? 'RUNNING' : 'FAILED', jobs: '', charged_usd: '',\n    run_url: r.id ? 'https://console.apify.com/view/runs/' + r.id : '', collected_at: r.id ? '' : now, note: r.id ? '' : 'could not start: ' + err, run_id: r.id || '' } };\n});"
+      },
+      "id": "d4000000-0000-4000-8000-000000000064",
+      "name": "Log the new job-feed runs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4780,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Sheet ready').first().json.sheetId }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Runs"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "started_at": "={{ $json.started_at }}",
+            "search": "={{ $json.search }}",
+            "mode": "={{ $json.mode }}",
+            "status": "={{ $json.status }}",
+            "jobs": "={{ $json.jobs }}",
+            "charged_usd": "={{ $json.charged_usd }}",
+            "run_url": "={{ $json.run_url }}",
+            "collected_at": "={{ $json.collected_at }}",
+            "note": "={{ $json.note }}"
+          },
+          "schema": [
+            {
+              "id": "started_at",
+              "displayName": "started_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "search",
+              "displayName": "search",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "mode",
+              "displayName": "mode",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "jobs",
+              "displayName": "jobs",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "charged_usd",
+              "displayName": "charged_usd",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "run_url",
+              "displayName": "run_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "collected_at",
+              "displayName": "collected_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "note",
+              "displayName": "note",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {
+          "cellFormat": "USER_ENTERED"
+        }
+      },
+      "id": "d4000000-0000-4000-8000-000000000065",
+      "name": "Add to Runs tab (job-feed)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        5000,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Everything to poll: the runs started just now plus the runs of earlier executions that are still RUNNING (for this part of the workflow).\nconst openRuns = () => $('Read Runs tab').all().map(i => i.json)\n  .filter(r => /^(RUNNING|READY)$/i.test(String(r.status || '').trim()) && String(r.run_url || '').trim())\n  .map(r => ({ id: String(r.run_url).trim().replace(/\\/+$/, '').split('/').pop(), run_url: String(r.run_url).trim(), search: String(r.search || ''), mode: String(r.mode || ''), status: String(r.status).trim().toUpperCase() }));\nconst mine = ['boards', 'websites', 'career pages', 'websites + career pages'];\nconst hook = String($('Settings').first().json.webhookUrl || '').trim();\nlet hookRun = '';\ntry { hookRun = String($('Apify run finished').first().json.body.runId || ''); } catch (e) {}\nlet fresh = [];\n// With a webhook URL set, new runs are not watched here: Apify calls the webhook when they finish.\nif (!hook) try { fresh = $('Log the new job-feed runs').all().map(i => i.json).filter(r => r.run_id).map(r => ({ id: r.run_id, run_url: r.run_url, search: r.search, mode: r.mode, status: 'RUNNING' })); } catch (e) {}\nconst seen = new Set();\nconst out = [];\nfor (const r of [...fresh, ...openRuns().filter(r => mine.includes(r.mode) && (!hookRun || r.id === hookRun))]) { if (!r.id || seen.has(r.id)) continue; seen.add(r.id); out.push({ json: r }); }\nreturn out;"
+      },
+      "id": "d4000000-0000-4000-8000-000000000066",
+      "name": "Runs to watch (job-feed)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5220,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "Actor runs",
+        "operation": "Get run",
+        "runId": "={{ $json.id }}"
+      },
+      "id": "d4000000-0000-4000-8000-000000000067",
+      "name": "Get job-feed run status",
+      "type": "@apify/n8n-nodes-apify.apify",
+      "typeVersion": 2,
+      "position": [
+        5440,
+        80
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Sort the runs by outcome. Keeps looping while a run is still open and Settings.maxWaitMinutes is not used up.\nconst s = $('Settings').first().json;\nconst maxPolls = String(s.webhookUrl || '').trim() ? 0 : Math.floor((Number(s.maxWaitMinutes) >= 0 ? Number(s.maxWaitMinutes) : 30) * 60 / 70);\nconst polls = $runIndex + 1;\nconst base = $('Runs to watch (job-feed)').all().map(i => i.json);\nconst got = $input.all().map(i => i.json || {});\n// What the run charges you: pay-per-event actors = sum(chargedEventCounts x event price) (+ platform usage only when the run bills usage to the user); other runs = usageTotalUsd.\nconst chargedOf = r => {\n  const ev = (((r.pricingInfo || {}).pricingPerEvent || {}).actorChargeEvents) || null;\n  if (!ev || !/PAY_PER_EVENT/i.test(String((r.pricingInfo || {}).pricingModel || ''))) return r.usageTotalUsd;\n  const cnt = r.chargedEventCounts || {};\n  let t = 0;\n  for (const k of Object.keys(cnt)) t += (Number(cnt[k]) || 0) * (Number((ev[k] || {}).eventPriceUsd) || 0);\n  if (String(r.platformUsageBillingModel || '').toUpperCase() === 'USER') t += Number(r.usageTotalUsd) || 0;\n  return t;\n};\nconst isOpen = st => ['READY', 'RUNNING', 'TIMING-OUT', 'ABORTING'].includes(st);\nconst rows = base.map((b, i) => { const r = got[i] || {}; return { ...b, status: String(r.status || (r.error ? 'UNKNOWN' : b.status || 'UNKNOWN')).toUpperCase(), defaultDatasetId: r.defaultDatasetId || '',\n  charged: chargedOf(r), jobs: (r.chargedEventCounts || {})['orchestrator-unique-job'], note: r.error ? 'could not read the run status: ' + String((r.error && r.error.message) || r.error) : '' }; });\nconst stillRunning = rows.some(r => isOpen(r.status)) && polls <= maxPolls;\nreturn rows.map(r => ({ json: { ...r, stillRunning, polls, outcome: r.status === 'SUCCEEDED' ? 'done' : isOpen(r.status) ? 'running' : 'problem' } }));"
+      },
+      "id": "d4000000-0000-4000-8000-000000000068",
+      "name": "Check the job-feed runs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5660,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "r1",
+              "leftValue": "={{ $json.stillRunning }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d4000000-0000-4000-8000-000000000069",
+      "name": "Still running? (job-feed)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        5880,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": 70,
+        "unit": "seconds"
+      },
+      "id": "d4000000-0000-4000-8000-000000000070",
+      "name": "Wait before checking again (job-feed)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        5880,
+        280
+      ],
+      "webhookId": "d4a11000-0000-4000-8000-000000000070"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "r2",
+              "leftValue": "={{ $json.outcome }}",
+              "rightValue": "done",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d4000000-0000-4000-8000-000000000071",
+      "name": "Run succeeded? (job-feed)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        6100,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "Datasets",
+        "operation": "Get items",
+        "datasetId": "={{ $json.defaultDatasetId }}",
+        "offset": 0,
+        "limit": 5000,
+        "options": {}
+      },
+      "id": "d4000000-0000-4000-8000-000000000072",
+      "name": "Get job-feed results",
+      "type": "@apify/n8n-nodes-apify.apify",
+      "typeVersion": 2,
+      "position": [
+        6320,
+        80
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Runs of this execution whose dataset was just processed: mark them collected, so they are never processed twice.\nconst fmt = u => (u == null || u === '' || isNaN(Number(u))) ? '' : String(Math.round(Number(u) * 10000) / 10000);\nconst now = $now.toFormat('yyyy-LL-dd HH:mm');\nreturn $('Check the job-feed runs').all().map(i => i.json).filter(r => r.outcome === 'done' && !r.stillRunning)\n  .map(r => ({ json: { run_url: r.run_url, status: 'SUCCEEDED', jobs: r.jobs == null ? '' : r.jobs, charged_usd: fmt(r.charged), collected_at: now, note: '' } }));"
+      },
+      "id": "d4000000-0000-4000-8000-000000000073",
+      "name": "Mark the job-feed runs collected",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6540,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "r3",
+              "leftValue": "={{ $json.outcome }}",
+              "rightValue": "problem",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d4000000-0000-4000-8000-000000000074",
+      "name": "Run ended with a problem? (job-feed)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        6320,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const fmt = u => (u == null || u === '' || isNaN(Number(u))) ? '' : String(Math.round(Number(u) * 10000) / 10000);\nconst r = $json;\nconst now = $now.toFormat('yyyy-LL-dd HH:mm');\nconst note = r.status === 'UNKNOWN' ? (r.note || 'could not read the run status (deleted or expired?)') : 'The run ended with status ' + r.status + '. Open run_url to see why. Nothing was collected from it.';\nreturn { json: { run_url: r.run_url, status: r.status, jobs: '', charged_usd: fmt(r.charged), collected_at: now, note } };",
+        "mode": "runOnceForEachItem"
+      },
+      "id": "d4000000-0000-4000-8000-000000000075",
+      "name": "Describe the job-feed run problem",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6540,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Sheet ready').first().json.sheetId }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Runs"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "run_url": "={{ $json.run_url }}",
+            "status": "={{ $json.status }}",
+            "jobs": "={{ $json.jobs }}",
+            "charged_usd": "={{ $json.charged_usd }}",
+            "collected_at": "={{ $json.collected_at }}",
+            "note": "={{ $json.note }}"
+          },
+          "matchingColumns": [
+            "run_url"
+          ],
+          "schema": [
+            {
+              "id": "run_url",
+              "displayName": "run_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "jobs",
+              "displayName": "jobs",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "charged_usd",
+              "displayName": "charged_usd",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "collected_at",
+              "displayName": "collected_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "note",
+              "displayName": "note",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {
+          "cellFormat": "USER_ENTERED"
+        }
+      },
+      "id": "d4000000-0000-4000-8000-000000000076",
+      "name": "Update Runs row (job-feed)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        6760,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "j1",
+              "leftValue": "={{ $json.noNewJobs }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d4000000-0000-4000-8000-000000000107",
+      "name": "Any new jobs?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        7310,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "numberInputs": 4
+      },
+      "id": "d4000000-0000-4000-8000-000000000108",
+      "name": "Jobs ready to write",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        9820,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "p1",
+              "leftValue": "={{ $json.none }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d4000000-0000-4000-8000-000000000109",
+      "name": "Career pages to add?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        10520,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Collapse to ONE item: marking the run collected and the next steps run exactly once.\nreturn [{ json: { done: true } }];"
+      },
+      "id": "d4000000-0000-4000-8000-000000000110",
+      "name": "Jobs written (once)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        10960,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Hand-over from \"Company websites\" to \"Career pages\": when job-feed found the job system of a company you gave as a website,\n// add that career page to the Career pages tab (once per company), so the next runs read it directly: cheaper and faster.\n// A job is matched to its website through input_refs (source companyUrls, url = the website exactly as this workflow sent it).\nconst normSite = u => String(u || '').trim().toLowerCase().replace(/^https?:\\/\\//, '').replace(/^www\\./, '').replace(/\\/+$/, '');\nconst normPage = u => String(u || '').trim().toLowerCase().replace(/^https?:\\/\\//, '').replace(/\\/+$/, '');\nconst on = r => !/^\\s*(no|n|false|0|off|nein)\\s*$/i.test(String(r.active == null ? '' : r.active));\n// Every input cell is cleaned first: tabs, line breaks and runs of spaces become ONE space, then trimmed. In keywords and country a line break still separates entries.\nconst clean = v => String(v == null ? '' : v).replace(/\\s+/g, ' ').trim();\nconst cleanRow = r => Object.fromEntries(Object.entries(r).map(([k, v]) => [k, typeof v !== 'string' ? v : /^(keywords|country)$/.test(k) ? v.split(/\\r?\\n/).map(clean).filter(Boolean).join(', ') : clean(v)]));\nconst known = new Set($('Read career pages').all().map(i => normPage(cleanRow(i.json).career_page_url)).filter(Boolean));\nconst keywordsOf = new Map($('Read company websites').all().map(i => cleanRow(i.json)).filter(r => String(r.website || '').trim() && on(r)).map(r => [normSite(r.website), String(r.keywords || '').trim()]));\nconst out = [];\nfor (const { json: j } of $('Get job-feed results').all()) {\n  const ref = (j.input_refs || []).find(r => r && r.source === 'companyUrls' && r.url);\n  const page = String(j.ats_url || j.career_page_url || '').trim();\n  if (!ref || !page || known.has(normPage(page))) continue;\n  known.add(normPage(page));\n  const site = normSite(ref.url);\n  out.push({ json: { career_page_url: page, company: (j.company && j.company.name) || '', keywords: keywordsOf.get(site) || '', active: 'yes', found_from_website: site } });\n}\nreturn out.length ? out : [{ json: { none: true } }];"
+      },
+      "id": "d4000000-0000-4000-8000-000000000099",
+      "name": "Remember found career pages",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        10300,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Sheet ready').first().json.sheetId }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Career pages"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "career_page_url": "={{ $json.career_page_url }}",
+            "company": "={{ $json.company }}",
+            "keywords": "={{ $json.keywords }}",
+            "active": "={{ $json.active }}",
+            "found_from_website": "={{ $json.found_from_website }}"
+          },
+          "schema": [
+            {
+              "id": "career_page_url",
+              "displayName": "career_page_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "company",
+              "displayName": "company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "keywords",
+              "displayName": "keywords",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "active",
+              "displayName": "active",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "found_from_website",
+              "displayName": "found_from_website",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {
+          "cellFormat": "USER_ENTERED"
+        }
+      },
+      "id": "d4000000-0000-4000-8000-000000000100",
+      "name": "Add found career pages",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        10740,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "g1",
+              "leftValue": "={{ $('Settings').first().json.createGmailDrafts }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d4000000-0000-4000-8000-000000000101",
+      "name": "Create Gmail drafts?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        8600,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// createGmailDrafts is on: for every job with a drafted letter, pick the address (contact first, else the company's) and build the draft.\n// Nothing is sent: the next node only creates a Gmail DRAFT. At most maxDraftsPerRun drafts per run.\nconst s = $('Settings').first().json;\nconst cap = Number(s.maxDraftsPerRun) >= 0 ? Number(s.maxDraftsPerRun) : 10;\nconst tpl = String(s.draftSubject || 'Application: {title}');\nconst first = v => String(v || '').split(',')[0].trim().replace(/^'/, '');\nlet n = 0;\nreturn $input.all().map(({ json: j }) => {\n  const to = first(j.contact_email) || first(j.company_email);\n  if (!to) return { json: { ...j, gmail_draft: 'no email', draft_ok: false } };\n  if (n >= cap) return { json: { ...j, gmail_draft: 'limit reached', draft_ok: false } };\n  n++;\n  return { json: { ...j, draft_ok: true, draft_to: to, draft_subject: tpl.replace(/\\{title\\}/g, j.title || '').replace(/\\{company\\}/g, j.company || ''), draft_body: j.letter } };\n});"
+      },
+      "id": "d4000000-0000-4000-8000-000000000102",
+      "name": "Prepare the Gmail drafts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        8820,
+        -220
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "g2",
+              "leftValue": "={{ $json.draft_ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d4000000-0000-4000-8000-000000000103",
+      "name": "Draft this one?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        9040,
+        -220
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "draft",
+        "subject": "={{ $json.draft_subject }}",
+        "emailType": "text",
+        "message": "={{ $json.draft_body }}",
+        "options": {
+          "sendTo": "={{ $json.draft_to }}"
+        }
+      },
+      "id": "d4000000-0000-4000-8000-000000000104",
+      "name": "Create Gmail draft (never sends)",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        9260,
+        -320
+      ],
+      "onError": "continueRegularOutput",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// The Gmail node created the draft (or reported an error). Put the outcome back on the job row.\nconst j = $('Prepare the Gmail drafts').item.json;\n// The Gmail node ships deactivated; a deactivated node passes its input through unchanged (no draft id), so that is not reported as a draft.\nconst failed = $json && $json.error;\nconst made = $json && !failed && ($json.id || ((($json.message || {}).labelIds) || []).includes('DRAFT'));\nreturn { json: { ...j, gmail_draft: failed ? ('draft failed: ' + String((failed && failed.message) || failed).slice(0, 120)) : made ? 'draft created' : \"Gmail node is off: activate 'Create Gmail draft (never sends)' and connect Gmail\" } };",
+        "mode": "runOnceForEachItem"
+      },
+      "id": "d4000000-0000-4000-8000-000000000105",
+      "name": "Mark the draft",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        9480,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "nanoscrape-job-matches",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "d4000000-0000-4000-8000-000000000106",
+      "name": "Apify run finished",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -60,
+        360
+      ],
+      "webhookId": "d4a11000-0000-4000-8000-0000000000a1"
+    },
+    {
+      "parameters": {
+        "content": "## Job tracker: new jobs scored against your CV, cover letters drafted (never applies, never sends)\nEvery morning this workflow collects new job ads for the searches you list in your Google Sheet, from many job boards, company career sites and job systems at once. It removes duplicates, scores each new job against **your CV** with your own AI model, and drafts a cover letter in the language you choose (English, German *Anschreiben*, French, Spanish, Japanese … any language) for the good matches. Everything lands in the **Jobs** tab, a tracking sheet with a **status** dropdown (To review, Letter drafted, Applied, Interview, Offer, Rejected, No response / ghosted, Not interested). It never applies for a job and never sends anything.\n\n**How it works**\n1. Finds (or on the first run creates) your Sheet with 5 tabs and reads the job IDs already in the **Jobs** tab, so every job is scored once, even when another board lists it again.\n2. Reads your searches from three input tabs (a row with `active` = no is skipped; empty tabs are fine): **Job boards & keywords** (keywords, country, location, radius, optional board), **Company websites** (job-feed finds the jobs page itself; optional `keywords`, blank = all jobs of the company) and **Career pages** (the page of a known job system such as Greenhouse, Lever or Workday: cheaper; optional `keywords` too).\n3. Apify `santamaria-automations/job-feed` runs them: every search is started as its own Apify run **without waiting** and logged in the **Runs** tab. The workflow first collects runs that were still running last time, then checks the new runs every 70 seconds for up to `maxWaitMinutes` (default 30); a run that takes longer stays RUNNING and is collected by the next execution (see the sticky \"Long runs\"). Optional: a webhook delivers results the moment a run finishes. Agencies are dropped on board searches, job details on, only jobs it hasn't delivered to you before. When job-feed finds the job system of a company you gave as a **website**, the workflow adds that career page to **Career pages** by itself (active = yes, `found_from_website` filled). From then on the website row is skipped and the career page is read directly: about $0.001 per job instead of $0.012, and faster.\n4. Your AI model gives each new job a 0-100 score and a two-line reason.\n5. Jobs at or above `minScore` that have a description get a cover letter draft. Jobs without one are scored from the title only and get no letter (see the **note** column).\n6. One row per job: status, score, title, company, link to apply, contact and company details (when the job ad or company page publishes them), reason, letter, note. Optional: a Gmail **draft** per drafted letter (never sent). The workflow writes the first status only (\"Letter drafted\" or \"To review\") and never changes it again, so your edits stay.\n\n**Setup (about 10 minutes)**\n1. **First: add your CV** (see the sticky note \"Step 1: Add your CV\" next to **Settings**). Open **Settings** and either paste your CV as plain text into `cvText`, or put the link of a Google Doc that contains your CV into `cvDocUrl`. Without a CV the run stops before any Apify cost.\n2. Install the verified community node `@apify/n8n-nodes-apify` (tested with 0.9.0; install guide: https://docs.apify.com/platform/integrations/n8n). It works on n8n Cloud and self-hosted. Connect your Apify account (credential type Apify API) in the three Apify-facing nodes of the job-feed block: **Start job-feed run (no waiting)** (an HTTP Request node), **Get job-feed run status** and **Get job-feed results**. No Apify account yet? Free sign-up: https://console.apify.com/sign-up?fpr=0khfbz\n3. Connect Google Sheets (Sheet and HTTP nodes). On the first run the workflow creates the Sheet `Job matches - NanoScrape` with the tabs Jobs, Job boards & keywords, Company websites, Career pages and Runs, the input tabs with example rows.\n4. Connect your AI model in the two **OpenAI model** nodes (your own OpenAI key). Prefer another provider? Replace both with the **OpenRouter Chat Model**, **Anthropic Chat Model** or **Google Gemini Chat Model** node.\n5. In **Settings** also set `yourName`, `language` (the language of the reasons and letters, any language name; default English), `minScore`, and optionally `letterStyle` and `letterWords`. The sticky note \"Settings explained\" gives examples. If you use `cvDocUrl`, connect Google Docs in **Read CV from Google Docs**.\n6. Run once with **Test workflow**: it creates the Sheet. Open it, then edit the input tabs: the first example keyword row is active, the other examples are set to `active` = no. Put your own searches in, run again.\n7. Optional: Gmail drafts (`createGmailDrafts`, see the sticky \"Optional: Gmail drafts\") and the webhook fast path (`webhookUrl`, see the sticky \"Faster results with a webhook\"). Both are off by default and need no extra account. Their nodes (**Read CV from Google Docs**, **Create Gmail draft (never sends)**) ship deactivated: n8n only lets you activate a workflow when every active node has its credential. To use one, right-click the node > **Activate** and connect the credential.\n8. Times (`found_at`, the 7 AM schedule) use your n8n timezone (Settings → Timezone). When the results look right, activate the workflow.\n\n**The input tabs**\n- **Job boards & keywords:** `keywords` (several in one cell: separate with commas), `country` (a code job-feed has a country preset for: 26 countries, e.g. CH, DE, AT, GB, US, FR, ES, IT, NL, PL; the full list is the `countries` field of the job-feed input), `location`, `radiusKm`, `platform` (optional job-feed board ID, e.g. `linkedin`; blank = job-feed's default boards for the country; for countries without a preset, or to search worldwide, set `platform` to `linkedin` or `indeed`; a filled platform searches only that board and ignores `country`). Rows with the same country, location, radius and platform are sent together as one search. The current list of supported job platforms is on the job-feed actor page: https://apify.com/santamaria-automations/job-feed (new boards are added continually).\n- **Company websites:** `website`, optional `keywords` (comma-separated). Blank keywords = all jobs of that company (still capped by `maxJobsPerCompany` and `maxJobsPerRun`); filled = only jobs matching them. job-feed looks for the company's jobs page itself (about $0.012 per job, slower). Found the company's job system? It is copied to **Career pages** automatically (see step 3).\n- **Career pages:** `career_page_url` of a company on a known job system (the **Career pages** examples show Greenhouse, Lever, Workday, Personio, SmartRecruiters, Ashby and Recruitee), optional `company` label, optional `keywords` (as for websites), `found_from_website` (filled in by the workflow for rows it added; leave empty for rows you add yourself). About $0.001 per job and fast. An automatically added row can be turned off with `active` = no: the website is then read again.\n- **Runs:** written by the workflow, one row per Apify run (started_at, search, mode, status, jobs, charged_usd, run_url, collected_at, note). Open `run_url` for the run in Apify Console. `charged_usd` is what that run itself charged (pay-per-event price x events). job-feed starts its own sub-runs (one per job board / company reader); those are billed as separate runs and show up in Apify Console > Runs. The full total is in Apify Console > Billing.\n- **Fair caps:** company websites and career pages run as separate job-feed runs (one per keyword set). Each company gets up to `maxJobsPerCompany` jobs; `maxJobsPerRun` caps the job-board searches (a company run's total is `maxJobsPerCompany` x its number of companies, so no company is starved).\n- The keywords of the first tab are **not** used for company websites and career pages (a keyword in one language would hide a company's jobs in another). Rows with the same keywords share one job-feed run.\n\n**Contact data:** `contact_*` and `company_*` columns hold what the job ad or company page publishes (first contact; extra emails and phones joined with commas); blank when not published, never guessed. Use them for applications and outreach in line with local law (for example GDPR). `includeContactData` (default true) asks job-feed for recruiter contacts. `includeCompanyDetails` (default false) adds one extra company-page fetch per unique company: job-feed has no event of its own for it, but its sub-actors may bill for it, so check your Apify bill before leaving it on.\n\n**Privacy:** your CV text is sent to the AI provider you connect (OpenAI by default). Use a CV without data you don't want to share.\n\n**Tested on** n8n 2.35.7 (self-hosted), 2026-11-18.\n\n**Cost** (Apify Store prices, checked 2026-11-16): about $0.004 per job delivered from job boards (our tests: 25 jobs ≈ $0.11, 98 jobs ≈ $0.38). A career page on a known job system costs about $0.001 per job, a company website about $0.012 per job plus $0.01 per company (job-feed README). `postedWithinDays`, `maxJobsPerRun` and `maxJobsPerCompany` keep it small. Plus your AI provider's usage: one short call per new job and one longer call per letter.\n\n**Limits**\n- Coverage (job-feed's board registry): 64 countries are covered in total, but country presets (the `country` column) exist for 26 of them; for any other country set `platform` to `linkedin` or `indeed`. National job boards exist in 28 of the 64 (90 boards in total; most in Switzerland 20, the UK 14, the US 12, Germany 6, Austria 4, the others 1 to 4 each). Indeed covers 62 countries, Glassdoor 19, LinkedIn is worldwide, and 39 job systems can be read from career pages. How many jobs you get still varies a lot by country and keyword.\n- Reasons and letters can be written in any language your AI model writes well. Check the result, especially for less common languages.\n- Not every job board gives a full description, salary or posting date; some rows have none.\n- job-feed remembers which jobs it already delivered to your Apify account for the same search, so a second workflow (or a manual run) with the same settings only gets jobs the first one hasn't seen.\n- No search covers every job; duplicates across boards are caught by job ID and aliases, not perfectly.\n- Some company websites can't be read (job pages that need a browser, or none found); those give no rows.\n- If a job-feed run fails, is aborted or times out, its **Runs** row gets that status and a note with the run link; the other searches continue. A run that takes longer than `maxWaitMinutes` stays RUNNING and is collected by the next execution, so run the workflow on a schedule shorter than your Apify data retention (see the sticky \"Long runs\").\n- The letters are drafts from your CV. Read and fix every one before you use it. Nothing is sent or submitted.",
+        "width": 520,
+        "height": 1900,
+        "color": 4
+      },
+      "id": "d4000000-0000-4000-8000-000000000030",
+      "name": "Sticky Note - Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -640,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 2. New jobs only\nOne job-feed run per search (rows with the same country, location, radius and platform share one). Agencies are dropped on board searches (`excludeAgencies`), only jobs job-feed hasn't delivered to you before are returned (`onlyNewJobs`). Job IDs already in the Jobs tab are skipped again here. Company websites and career pages are searched in their own runs (one per distinct keyword set).",
+        "width": 3160,
+        "height": 560,
+        "color": 7
+      },
+      "id": "d4000000-0000-4000-8000-000000000031",
+      "name": "Sticky Note - Find",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        3860,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 1. Your searches (3 input tabs)\nRead on every run from **Job boards & keywords**, **Company websites** and **Career pages**. `active` = no skips a row; empty tabs are fine.\n\n- Boards: keywords + country (+ location, radius, optional board) become `keywords`, `countries` (or `platforms`), `location`, `radiusKm`.\n- Company websites become `companyUrls`; career pages become `careerSites` (cheaper). Their own optional `keywords` column filters that company's jobs; blank = all jobs of the company. Rows with the same keywords share one run; the board keywords are not forwarded.",
+        "width": 840,
+        "height": 560,
+        "color": 7
+      },
+      "id": "d4000000-0000-4000-8000-000000000036",
+      "name": "Sticky Note - Input tabs",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        3020,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Tab: Job boards & keywords\n**What it is for:** searching job boards (LinkedIn, Indeed, national boards) by job title.\n**Use it when:** you don't know the companies yet, you just want every new job for a title.\n**Example row:** `Software Engineer | DE | Berlin | 25 | (blank) | yes`\n**Columns:** `keywords` (job titles, several separated by commas), `country` (a code like CH, DE, GB, US), `location`, `radiusKm`, `platform` (blank = the usual boards of that country; `linkedin` or `indeed` = only that board, worldwide, then `country` is not needed), `active` (yes = used, no = skipped).\n**Cost and speed:** about $0.004 per job. All searches start together; in our tests a search took one to two minutes.\n**Which boards are supported?** See the current list on the job-feed actor page: https://apify.com/santamaria-automations/job-feed (new boards are added continually).",
+        "width": 340,
+        "height": 640,
+        "color": 7
+      },
+      "id": "d4000000-0000-4000-8000-000000000080",
+      "name": "Sticky Note - Tab boards",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        3020,
+        1100
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Tab: Company websites\n**What it is for:** watching specific companies. You only paste the website; job-feed finds the jobs page itself.\n**Use it when:** you know the companies but not their job system.\n**Example row:** `https://www.swisscom.ch | (blank) | yes`\n**Columns:** `website`; `keywords` (optional, comma-separated: blank = all jobs of that company, filled = only matching jobs); `active` (yes/no).\n**Cost and speed:** about $0.012 per job plus $0.01 per company, and slower, because job-feed has to find and read the page.\n**Automatic hand-over:** when job-feed finds the company's job system (the **detected_career_page** column in **Jobs**), the workflow adds it to **Career pages** (`active` = yes, `found_from_website` = this website). From the next run this row is skipped and the career page is read directly: about $0.001 per job and fast. Set that Career pages row to `active` = no to read the website again.",
+        "width": 340,
+        "height": 640,
+        "color": 7
+      },
+      "id": "d4000000-0000-4000-8000-000000000081",
+      "name": "Sticky Note - Tab websites",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        3380,
+        1100
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Tab: Career pages\n**What it is for:** the jobs page of a company on a known job system (Greenhouse, Lever, Workday, Personio, SmartRecruiters, Ashby, Recruitee).\n**Use it when:** you know the address (see \"How to find a company's career page\"), or the workflow already found it for you.\n**Example row:** `https://jobs.lever.co/spotify | Spotify | (blank) | (blank) | yes`\n**Columns:** `career_page_url`; `company` (a label, optional); `keywords` (optional, blank = all jobs); `active` (yes/no); `found_from_website` (filled in by the workflow for rows it added from a website; leave empty for your own rows).\n**Cost and speed:** about $0.001 per job and fast.\n**Rows added automatically** come from the Company websites tab. Turn one off with `active` = no and the website is read again.",
+        "width": 340,
+        "height": 640,
+        "color": 7
+      },
+      "id": "d4000000-0000-4000-8000-000000000082",
+      "name": "Sticky Note - Tab career pages",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        3740,
+        1100
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Long runs: nothing waits for hours\nApify runs are **started without waiting** and logged in the **Runs** tab of your Sheet (started_at, search, mode, status, jobs, charged_usd, run_url, collected_at, note).\n\n1. **Collect first:** runs still marked RUNNING from an earlier execution are checked. A finished run is read and processed, then marked SUCCEEDED with `collected_at`: a run is never processed twice. FAILED, ABORTED or TIMED-OUT runs get that status and a note.\n2. **Start:** new runs for this execution all start at once. A search whose previous run is still RUNNING is not started again (no double cost).\n3. **Wait:** every 70 seconds the runs are checked, for at most `maxWaitMinutes` (default 30). A run that is not finished by then stays RUNNING and is collected by the next scheduled execution or manual run.\n\nWaits longer than 65 seconds are stored in n8n's database, so an n8n restart does not lose a run: it is still in the Runs tab.\n\n**Keep your schedule shorter than your Apify data retention.** A run's results live in an unnamed dataset. Apify keeps unnamed storages according to your plan: on the Free plan your 10 most recent runs are kept for 4 months, on paid plans the period is set in your billing settings (docs.apify.com/platform/storage/usage). Run the workflow more often than that.\n\n**Where to see every run:** the **Runs** tab (open `run_url`), Apify Console > Runs, and n8n > Executions.\n\n**About `charged_usd`:** it is what the run itself charged (pay-per-event price x events). job-feed starts its own sub-runs (one per job board / company reader); those are billed as separate runs and show up in Apify Console > Runs. The full total is in Apify Console > Billing.\n\n**Faster than waiting:** set `webhookUrl` (see the webhook note). Without it, scheduled collection still works.",
+        "width": 760,
+        "height": 420,
+        "color": 5
+      },
+      "id": "d4000000-0000-4000-8000-000000000083",
+      "name": "Sticky Note - Long runs",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        3880,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Faster results with a webhook (optional)\nApify can call this workflow the moment a run finishes. The **Apify run finished** node is a second trigger for that.\n- **n8n Cloud:** open the **Apify run finished** node, copy its **Production URL**, paste it into `webhookUrl` in Settings, and **activate** the workflow.\n- **Self-hosted:** needs a public HTTPS URL (Cloudflare Tunnel or a reverse proxy; set n8n's `WEBHOOK_URL`). localhost alone cannot receive Apify webhooks.\n- Leave `webhookUrl` empty to skip this: every run is still collected by the schedule (and the workflow then waits up to `maxWaitMinutes` for runs it started).\n\nWith `webhookUrl` set, the workflow does not wait: it starts the runs and ends. The webhook (or the next schedule) collects each result once. A webhook for a run that is not in the Runs tab is ignored.",
+        "width": 380,
+        "height": 520,
+        "color": 5
+      },
+      "id": "d4000000-0000-4000-8000-000000000084",
+      "name": "Sticky Note - Webhook",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        1400
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Optional: Gmail drafts\nOff by default (`createGmailDrafts` = false): no Gmail account is needed. When on, each job with a drafted letter and an email (contact_email, else company_email) gets a Gmail **draft**. Nothing is ever sent. The CV is not attached: attach it yourself before sending.\n`draftSubject` replaces {title} and {company}; write it in your own language. `maxDraftsPerRun` caps drafts per run. The Jobs column `gmail_draft` shows \"draft created\" or \"no email\". To use it: set createGmailDrafts to true, right-click the node **Create Gmail draft (never sends)** > **Activate** (it is deactivated by default, so the workflow can be activated without a Gmail credential), then connect your Gmail account in it. If the node stays off, `gmail_draft` says so.\nContacts are what the job ad or company page publishes. Use them for applications and outreach in line with local law (for example GDPR).",
+        "width": 900,
+        "height": 280,
+        "color": 7
+      },
+      "id": "d4000000-0000-4000-8000-000000000085",
+      "name": "Sticky Note - Gmail",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        8600,
+        -620
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### How to find a company's career page\nThree ways, easiest first:\n1. **Just the website.** Put the company's website in **Company websites**. job-feed finds the jobs page itself.\n2. **Copy the link.** Open the company's site, scroll to the footer, click \"Careers\", \"Jobs\" or \"Karriere\", copy that address from the browser and paste it into **Career pages**.\n3. **Search it.** Google `site:boards.greenhouse.io <company>`, or `site:jobs.lever.co <company>`, `site:jobs.ashbyhq.com`, `site:apply.workable.com`, `site:jobs.smartrecruiters.com`, `site:myworkdayjobs.com <company>`, and paste the result.\n\n**Why bother with Career pages?** A page on a known job system is read directly: about $0.001 per job instead of about $0.012 (job-feed README).\n\n**Let the workflow tell you.** When job-feed reads a company from **Company websites** and finds its job system, the **detected_career_page** column in the **Jobs** tab shows that address (job-feed's `ats_url`, or `career_page_url` from the website reader). The workflow then adds it to **Career pages** by itself (`active` = yes, `found_from_website` filled in), so the next runs read it directly. Not every company gets one: job boards and companies whose job system job-feed doesn't recognise leave it empty.",
+        "width": 840,
+        "height": 640,
+        "color": 5
+      },
+      "id": "d4000000-0000-4000-8000-000000000037",
+      "name": "Sticky Note - Career page help",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        3020,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 3. Match score (your AI model)\nScore 0-100 + two-line reason per new job (the reason is written in your `language`). Swap the model node for OpenRouter, Anthropic or Gemini if you prefer.",
+        "width": 460,
+        "height": 680,
+        "color": 6
+      },
+      "id": "d4000000-0000-4000-8000-000000000032",
+      "name": "Sticky Note - Score",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        4300,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 4. Cover letter drafts\nOnly for jobs ≥ `minScore` with a description, written in your `language` (any language). The prompt forbids claims that aren't in your CV (no invented skills, employers, degrees or numbers); gaps become concrete items in square brackets in that language, like [start date] or [Eintrittsdatum]. Still check every letter.",
+        "width": 780,
+        "height": 680,
+        "color": 6
+      },
+      "id": "d4000000-0000-4000-8000-000000000033",
+      "name": "Sticky Note - Letter",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        4780,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 5. Jobs tab\nOne new row per job (rows are only added, never rewritten). Status is **Letter drafted** or **To review**; you change it with the dropdown as you apply. Long cells are clipped to one line: click a cell to read the full letter. Technical remarks go to **note**; **detected_career_page** is explained in the career page note. You apply yourself.",
+        "width": 400,
+        "height": 560,
+        "color": 7
+      },
+      "id": "d4000000-0000-4000-8000-000000000034",
+      "name": "Sticky Note - Output",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        5580,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Step 1: Add your CV\nThe workflow needs your CV as **text**. Two ways, pick one (in the **Settings** node):\n\n**A. Paste the text into `cvText`**\nOpen your CV, select all, copy, and paste it over the line \"PASTE YOUR CV HERE\". Tip: remove personal data you don't want to send to the AI provider (home address, phone, date of birth).\n\n**B. Link a Google Doc in `cvDocUrl`**\nPut your CV into a Google Doc in the same Google account as your n8n Google credential, copy the address from the browser, and paste it into `cvDocUrl`. A PDF or Word file: open it with Google Docs first, then use that Doc's link. The node **Read CV from Google Docs** is deactivated by default (so you can activate the workflow without a Google Docs credential): right-click it > **Activate**, then connect your Google Docs credential.\n\nIf `cvDocUrl` is filled, it is used and `cvText` is ignored (and the node must be activated, otherwise the run stops at **CV ready** with that message). Only plain text or a Google Doc can be read. With no CV the run stops at **CV ready**, before any Apify cost.",
+        "width": 380,
+        "height": 380,
+        "color": 6
+      },
+      "id": "d4000000-0000-4000-8000-000000000038",
+      "name": "Sticky Note - Step 1 CV",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        -400
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Settings explained\nChange the first five; the rest have defaults.\n- `cvText` / `cvDocUrl`: your CV (see Step 1). `cvDocUrl` also needs the node **Read CV from Google Docs** activated.\n- `yourName`: closes every letter.\n- `language`: the language of the score reasons and the letters. Any language name: English (default), German, French, Spanish, Italian, Dutch, Portuguese, Polish, Japanese. It does not have to match the job ad or your CV.\n- `minScore` (default 70): jobs scoring at least this get a letter. Example: 80 = fewer, stronger matches; 60 = more letters.\n- `letterStyle` (default empty, optional): extra instructions for the letter. Examples: `formal, Sie-Form, Swiss spelling with ss` or `British English, warm tone`.\n- `letterWords` (default 180-250): target length of a letter, for example `120-180` for a short one.\n- `postedWithinDays` (2): only jobs posted in the last days.\n- `maxJobsPerRun` (50) and `maxJobsPerCompany` (20): keep cost small. `maxJobsPerRun` caps each job-board search; each company gets up to `maxJobsPerCompany` (company runs: that times the number of companies, never starving one).\n- `includeContactData` (true): asks for recruiter contacts. `includeCompanyDetails` (false): one extra company fetch per unique company, sub-actors may bill for it; switch on only if you need company email/phone/LinkedIn.\n- `createGmailDrafts` (false; also activate the node **Create Gmail draft (never sends)** and connect Gmail), `draftSubject` (\"Application: {title}\"; {title} and {company} are replaced; write it in your language), `maxDraftsPerRun` (10): optional Gmail drafts, never sent, CV not attached.\n- `maxWaitMinutes` (30): longest time one execution waits for runs. `apifyRunTimeoutMinutes` (240): Apify's own limit per run. `maxCostPerRunUsd` (0.5): cost cap per Apify run (a budget setting, not a guaranteed hard stop).\n- `webhookUrl` (empty = off): see the webhook sticky.\n- `sheetName`: name of your Google Sheet in Drive (created on the first run).\n\nThe search itself (keywords, country, location) is in the Sheet tab **Job boards & keywords**.",
+        "width": 380,
+        "height": 900,
+        "color": 7
+      },
+      "id": "d4000000-0000-4000-8000-000000000039",
+      "name": "Sticky Note - Settings explained",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### If something goes wrong\n- **\"cvDocUrl is set: activate the node 'Read CV from Google Docs'\":** that node is deactivated by default. Right-click it > Activate, then connect Google Docs (or empty `cvDocUrl` and use `cvText`).\n- **gmail_draft says \"Gmail node is off\":** **Create Gmail draft (never sends)** is deactivated by default. Right-click it > Activate, then connect Gmail.\n- **Activating the workflow fails with a missing credential:** a workflow can only be activated when every active node has its credential. Optional nodes (Google Docs, Gmail drafts) are deactivated by default.\n- **No CV yet:** the run stops at **CV ready** before any Apify cost. Paste your CV as plain text into `cvText`, or put a Google Doc link into `cvDocUrl` (see Step 1).\n- **An Apify run fails** (bad input, timeout): the start retries once; a failed run gets its status and a note in the **Runs** tab and nothing is written to Jobs for it.\n- **Runs still RUNNING after the wait:** normal for long runs. The next execution collects them (Runs tab, `collected_at`). The node's **Max cost per run** is a budget setting; set `maxJobsPerRun` and `postedWithinDays` to keep runs small.\n- **Nothing happens after \"Build the searches\":** all rows in the three input tabs are empty or `active` = no. Add a row.\n- **A row needs a country or a platform:** the run stops with that message before any Apify cost; fix the row in **Job boards & keywords**.\n- **No new jobs today:** the workflow ends after **Keep unseen jobs**; no AI calls.\n- **The AI answer isn't valid JSON:** the job gets score 0 and the raw answer as reason, so you can see it.\n- **Duplicates:** each job is written once by `job_id`; IDs of the same job on other boards are stored in `job_id_aliases` and skipped later. The apply link (without tracking parameters, trailing slash or /apply) is stored there too as `url:...`, so the same job found through a company website and through its career page is written once (rows from older builds have no `url:` key).\n- For the daily schedule, set an error workflow in **Workflow settings** to get notified.",
+        "width": 1060,
+        "height": 360,
+        "color": 3
+      },
+      "id": "d4000000-0000-4000-8000-000000000035",
+      "name": "Sticky Note - Errors",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        320,
+        400
+      ]
+    }
+  ],
+  "connections": {
+    "Run manually": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every day at 7 AM": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Find the Sheet by name",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sheet exists?": {
+      "main": [
+        [
+          {
+            "node": "Use the existing Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create the Sheet (first run)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sheet ready": {
+      "main": [
+        [
+          {
+            "node": "Read Jobs tab",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Jobs tab": {
+      "main": [
+        [
+          {
+            "node": "Known job IDs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Known job IDs": {
+      "main": [
+        [
+          {
+            "node": "CV in a Google Doc?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CV in a Google Doc?": {
+      "main": [
+        [
+          {
+            "node": "Read CV from Google Docs",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "CV ready",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read CV from Google Docs": {
+      "main": [
+        [
+          {
+            "node": "CV ready",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CV ready": {
+      "main": [
+        [
+          {
+            "node": "Read keyword rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read keyword rows": {
+      "main": [
+        [
+          {
+            "node": "Read company websites",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read company websites": {
+      "main": [
+        [
+          {
+            "node": "Read career pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read career pages": {
+      "main": [
+        [
+          {
+            "node": "Read Runs tab",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Runs tab": {
+      "main": [
+        [
+          {
+            "node": "Build the searches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get job-feed results": {
+      "main": [
+        [
+          {
+            "node": "Keep unseen jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apify run finished": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Keep unseen jobs": {
+      "main": [
+        [
+          {
+            "node": "Any new jobs?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any new jobs?": {
+      "main": [
+        [
+          {
+            "node": "Remember found career pages",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Score the match (AI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Jobs ready to write": {
+      "main": [
+        [
+          {
+            "node": "Write to Jobs tab",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write to Jobs tab": {
+      "main": [
+        [
+          {
+            "node": "Remember found career pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remember found career pages": {
+      "main": [
+        [
+          {
+            "node": "Career pages to add?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Career pages to add?": {
+      "main": [
+        [
+          {
+            "node": "Jobs written (once)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Add found career pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add found career pages": {
+      "main": [
+        [
+          {
+            "node": "Jobs written (once)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Jobs written (once)": {
+      "main": [
+        [
+          {
+            "node": "Mark the job-feed runs collected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Score the match (AI)": {
+      "main": [
+        [
+          {
+            "node": "Read the score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read the score": {
+      "main": [
+        [
+          {
+            "node": "Worth a letter?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Worth a letter?": {
+      "main": [
+        [
+          {
+            "node": "Write the cover letter (AI)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No letter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write the cover letter (AI)": {
+      "main": [
+        [
+          {
+            "node": "Attach the letter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attach the letter": {
+      "main": [
+        [
+          {
+            "node": "Create Gmail drafts?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Gmail drafts?": {
+      "main": [
+        [
+          {
+            "node": "Prepare the Gmail drafts",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Jobs ready to write",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare the Gmail drafts": {
+      "main": [
+        [
+          {
+            "node": "Draft this one?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Draft this one?": {
+      "main": [
+        [
+          {
+            "node": "Create Gmail draft (never sends)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Jobs ready to write",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Create Gmail draft (never sends)": {
+      "main": [
+        [
+          {
+            "node": "Mark the draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark the draft": {
+      "main": [
+        [
+          {
+            "node": "Jobs ready to write",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "No letter": {
+      "main": [
+        [
+          {
+            "node": "Jobs ready to write",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "OpenAI model (scoring)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Score the match (AI)",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI model (letters)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Write the cover letter (AI)",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build the searches": {
+      "main": [
+        [
+          {
+            "node": "Anything to start? (job-feed)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anything to start? (job-feed)": {
+      "main": [
+        [
+          {
+            "node": "One item per job-feed search",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Runs to watch (job-feed)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One item per job-feed search": {
+      "main": [
+        [
+          {
+            "node": "Start job-feed run (no waiting)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start job-feed run (no waiting)": {
+      "main": [
+        [
+          {
+            "node": "Log the new job-feed runs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log the new job-feed runs": {
+      "main": [
+        [
+          {
+            "node": "Add to Runs tab (job-feed)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add to Runs tab (job-feed)": {
+      "main": [
+        [
+          {
+            "node": "Runs to watch (job-feed)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Runs to watch (job-feed)": {
+      "main": [
+        [
+          {
+            "node": "Get job-feed run status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get job-feed run status": {
+      "main": [
+        [
+          {
+            "node": "Check the job-feed runs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check the job-feed runs": {
+      "main": [
+        [
+          {
+            "node": "Still running? (job-feed)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Still running? (job-feed)": {
+      "main": [
+        [
+          {
+            "node": "Wait before checking again (job-feed)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Run succeeded? (job-feed)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait before checking again (job-feed)": {
+      "main": [
+        [
+          {
+            "node": "Get job-feed run status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run succeeded? (job-feed)": {
+      "main": [
+        [
+          {
+            "node": "Get job-feed results",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Run ended with a problem? (job-feed)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run ended with a problem? (job-feed)": {
+      "main": [
+        [
+          {
+            "node": "Describe the job-feed run problem",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Describe the job-feed run problem": {
+      "main": [
+        [
+          {
+            "node": "Update Runs row (job-feed)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark the job-feed runs collected": {
+      "main": [
+        [
+          {
+            "node": "Update Runs row (job-feed)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find the Sheet by name": {
+      "main": [
+        [
+          {
+            "node": "Sheet exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Use the existing Sheet": {
+      "main": [
+        [
+          {
+            "node": "Sheet ready",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create the Sheet (first run)": {
+      "main": [
+        [
+          {
+            "node": "Write the header rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write the header rows": {
+      "main": [
+        [
+          {
+            "node": "Read the tab IDs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read the tab IDs": {
+      "main": [
+        [
+          {
+            "node": "Add the dropdowns",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add the dropdowns": {
+      "main": [
+        [
+          {
+            "node": "Use the new Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Use the new Sheet": {
+      "main": [
+        [
+          {
+            "node": "Sheet ready",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

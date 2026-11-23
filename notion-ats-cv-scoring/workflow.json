@@ -1,0 +1,871 @@
+{
+  "name": "Automated CV Scoring & Feedback System with Notion ATS, OpenRouter and Gmail",
+  "nodes": [
+    {
+      "parameters": {
+        "event": "pagedUpdatedInDatabase",
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "databaseId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "simple": true
+      },
+      "id": "f-node-01",
+      "name": "When a candidate page is updated in Notion",
+      "type": "n8n-nodes-base.notionTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "s0",
+              "name": "triggerStatus",
+              "value": "CV Scoring (AI)",
+              "type": "string"
+            },
+            {
+              "id": "s1",
+              "name": "statusIfProceed",
+              "value": "AI: Proceed",
+              "type": "string"
+            },
+            {
+              "id": "s2",
+              "name": "statusIfReject",
+              "value": "AI: Reject (draft)",
+              "type": "string"
+            },
+            {
+              "id": "s3",
+              "name": "minScore",
+              "value": 70,
+              "type": "number"
+            },
+            {
+              "id": "s4",
+              "name": "outputLanguage",
+              "value": "English",
+              "type": "string"
+            },
+            {
+              "id": "s5",
+              "name": "companyName",
+              "value": "YOUR COMPANY",
+              "type": "string"
+            },
+            {
+              "id": "s6",
+              "name": "recruiterName",
+              "value": "YOUR NAME",
+              "type": "string"
+            },
+            {
+              "id": "s7",
+              "name": "schedulingLink",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "s8",
+              "name": "extraCriteria",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "s9",
+              "name": "createCandidateDraft",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "s10",
+              "name": "notifyTeam",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "s11",
+              "name": "teamEmail",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "s12",
+              "name": "fetchJobAdWithApify",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "s13",
+              "name": "maxCostPerRunUsd",
+              "value": 0.1,
+              "type": "number"
+            },
+            {
+              "id": "s14",
+              "name": "maxCvChars",
+              "value": 15000,
+              "type": "number"
+            }
+          ]
+        },
+        "options": {},
+        "includeOtherFields": true
+      },
+      "id": "f-node-02",
+      "name": "Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c0",
+              "leftValue": "={{ $json.Resume }}",
+              "rightValue": "",
+              "operator": {
+                "type": "array",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.Status }}",
+              "rightValue": "={{ $json.triggerStatus }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f-node-03",
+      "name": "Status is CV Scoring (AI) and a CV is attached?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.Resume[0] }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "f-node-04",
+      "name": "Download the CV PDF from Notion",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "options": {}
+      },
+      "id": "f-node-05",
+      "name": "Extract text from the CV PDF",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        960,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Gathers what the AI needs: the CV text (from the PDF) and the job requirements (from the candidate's Notion page).\n// Stops with a clear message when something is missing, so nothing is scored on empty input.\nconst s = $('Settings').item.json;\nconst page = $('Settings').item.json; // the candidate page from Notion (the Settings node passes every Notion field on)\nconst norm = x => String(x).toLowerCase().replace(/[^a-z0-9]/g, '');\nconst find = name => { const k = Object.keys(page).find(k => norm(k) === norm(name) || norm(k) === norm('property ' + name)); return k ? page[k] : undefined; };\nconst pick = v => {\n  if (v == null) return '';\n  if (Array.isArray(v)) return v.map(pick).filter(Boolean).join('\\n');\n  if (typeof v === 'object') return pick(v.plain_text ?? v.text ?? v.content ?? v.name ?? v.title ?? '');\n  return String(v).trim();\n};\nconst cv = String($json.text || '').trim();\nif (cv.length < 50) throw new Error('The CV PDF has no readable text (a scanned image?). Upload a text-based PDF, then set the status again.');\nconst jobText = pick(find('Job description'));\nconst jobTitle = pick(find('Job title'));\nconst jobUrl = pick(find('Job ad URL'));\nconst wantsApify = s.fetchJobAdWithApify === true && !!jobUrl;\nif (!jobText && !wantsApify) throw new Error(\"No job requirements found. Fill the property 'Job description' on the candidate (text, or a rollup of the linked job page), or turn on fetchJobAdWithApify and fill 'Job ad URL'.\");\nconst max = Number(s.maxCvChars) > 0 ? Number(s.maxCvChars) : 15000;\nreturn { json: { cv: cv.slice(0, max), jobText, jobTitle, jobUrl, wantsApify,\n  candidateName: pick(find('Name')), candidateEmail: pick(find('Email Address')), pageId: page.id } };",
+        "mode": "runOnceForEachItem"
+      },
+      "id": "f-node-06",
+      "name": "Collect the CV and the job requirements",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c0",
+              "leftValue": "={{ $json.wantsApify }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f-node-07",
+      "name": "Fetch the full job ad with Apify?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/santamaria-automations~job-feed/run-sync-get-dataset-items",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "apifyApi",
+        "sendQuery": true,
+        "specifyQuery": "json",
+        "jsonQuery": "={{ JSON.stringify({ timeout: 180, maxTotalChargeUsd: $('Settings').item.json.maxCostPerRunUsd }) }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ searchUrls: [$json.jobUrl], includeJobDetails: true, maxResultsTotal: 1 }) }}",
+        "options": {
+          "timeout": 200000
+        }
+      },
+      "id": "f-node-08",
+      "name": "Fetch the job ad text with Apify job-feed (optional)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1680,
+        -140
+      ],
+      "disabled": true,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Adds the fetched job ad text to the job requirements. A deactivated or empty Apify node passes the item through unchanged.\nconst base = $('Collect the CV and the job requirements').first().json; // the Apify option handles one candidate at a time\nconst ad = $input.all().map(i => i.json).find(j => j && String(j.description_text || '').trim());\nif (!ad) {\n  if (!base.jobText) throw new Error(\"job-feed returned no text for the 'Job ad URL', and 'Job description' is empty. Activate the Apify node and connect Apify, or fill 'Job description'.\");\n  return { json: base };\n}\nconst jobText = [base.jobText, String(ad.description_text).trim()].filter(Boolean).join('\\n\\n');\nreturn { json: { ...base, jobText: jobText.slice(0, 20000), jobTitle: base.jobTitle || String(ad.title || '') } };"
+      },
+      "id": "f-node-09",
+      "name": "Add the job ad text to the requirements",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        -140
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Builds the scoring prompt from the CV, the job requirements and your Settings.\nconst s = $('Settings').item.json;\nconst j = $json;\nconst lang = String(s.outputLanguage || '').trim() || 'English';\nconst extra = String(s.extraCriteria || '').trim();\nconst link = String(s.schedulingLink || '').trim();\nconst prompt = `You are a careful recruiting assistant. Compare the candidate's CV with the job requirements and return a structured screening result. A human recruiter makes every final decision: you only prepare it.\n\nJOB (${j.jobTitle || 'title not given'}):\n<job>\n${j.jobText}\n</job>\n\nCV:\n<cv>\n${j.cv}\n</cv>\n\nRULES\n- Use only facts that are in the CV and in the job text. Never invent skills, employers, degrees or dates. If something is not in the CV, say it is not shown.\n- Do not use age, gender, nationality, marital status, photo, health or other protected traits. Judge skills, experience, education and language fit only.\n- Write every text field in ${lang}.\n${extra ? '- Extra instructions from the recruiter: ' + extra + '\\n' : ''}\nSCORING\n- criteria: exactly these five, each with a score from 0 to 10 and a justification of 2-3 sentences: \"Skills match\", \"Experience level\", \"Education\", \"Language fit\", \"Overall fit\".\n- overallScore: 0-100 for the whole fit (not an average you must compute: your holistic judgement).\n- recommendation: \"Strong match\" (80-100), \"Possible match\" (60-79) or \"Weak match\" (0-59).\n- proceed: true when overallScore is at least ${Number(s.minScore) || 70}, otherwise false.\n- nextStep: \"Interview\" when proceed is true and overallScore is 80 or more, \"Screening call\" when proceed is true otherwise, \"Reject\" when proceed is false.\n- summary: 3-4 sentences for the recruiter. strengths and gaps: up to 4 short items each. internalNote: one short sentence on what to check next.\n- candidateName, candidateEmail, currentPosition: read from the CV (\"\" when not shown).\n\nEMAIL DRAFT TO THE CANDIDATE (email.subject and email.body, plain text)\n- Address the candidate by first name. Sign with \"${s.recruiterName}, ${s.companyName}\".\n- proceed = true: thank them and invite them to the next step (the nextStep). ${link ? 'Offer this scheduling link: ' + link : 'Write [scheduling link] where a link belongs.'}\n- proceed = false: a polite, respectful decline with one or two concrete, constructive points. Do not state scores.\n- Do not promise a job, a salary or a date.`;\nreturn { json: { ...j, prompt } };",
+        "mode": "runOnceForEachItem"
+      },
+      "id": "f-node-10",
+      "name": "Build the scoring prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.prompt }}",
+        "hasOutputParser": true,
+        "batching": {}
+      },
+      "id": "f-node-11",
+      "name": "Score the CV against the job (AI)",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        2400,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "model": "qwen/qwen3-235b-a22b-2507",
+        "options": {
+          "temperature": 0.2
+        }
+      },
+      "id": "f-node-12",
+      "name": "OpenRouter model (change the model id here)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        2400,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"candidateName\": {\n      \"type\": \"string\"\n    },\n    \"candidateEmail\": {\n      \"type\": \"string\"\n    },\n    \"currentPosition\": {\n      \"type\": \"string\"\n    },\n    \"criteria\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"name\": {\n            \"type\": \"string\"\n          },\n          \"score\": {\n            \"type\": \"integer\",\n            \"minimum\": 0,\n            \"maximum\": 10\n          },\n          \"justification\": {\n            \"type\": \"string\"\n          }\n        },\n        \"required\": [\n          \"name\",\n          \"score\",\n          \"justification\"\n        ]\n      }\n    },\n    \"overallScore\": {\n      \"type\": \"integer\",\n      \"minimum\": 0,\n      \"maximum\": 100\n    },\n    \"recommendation\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \"Strong match\",\n        \"Possible match\",\n        \"Weak match\"\n      ]\n    },\n    \"summary\": {\n      \"type\": \"string\"\n    },\n    \"strengths\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      }\n    },\n    \"gaps\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      }\n    },\n    \"proceed\": {\n      \"type\": \"boolean\"\n    },\n    \"nextStep\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \"Interview\",\n        \"Screening call\",\n        \"Reject\"\n      ]\n    },\n    \"internalNote\": {\n      \"type\": \"string\"\n    },\n    \"email\": {\n      \"type\": \"object\",\n      \"properties\": {\n        \"subject\": {\n          \"type\": \"string\"\n        },\n        \"body\": {\n          \"type\": \"string\"\n        }\n      },\n      \"required\": [\n        \"subject\",\n        \"body\"\n      ]\n    }\n  },\n  \"required\": [\n    \"criteria\",\n    \"overallScore\",\n    \"recommendation\",\n    \"summary\",\n    \"proceed\",\n    \"nextStep\",\n    \"internalNote\",\n    \"email\"\n  ]\n}"
+      },
+      "id": "f-node-13",
+      "name": "Structured output parser (score schema)",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [
+        2600,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Takes the AI result, decides proceed from your minScore (the code decides, not the AI) and shapes the Notion update and the drafts.\nconst s = $('Settings').item.json;\nconst c = $('Collect the CV and the job requirements').item.json;\nconst o = $json.output || {};\nconst overall = Math.max(0, Math.min(100, Math.round(Number(o.overallScore) || 0)));\nconst min = Number(s.minScore) || 70;\nconst proceed = overall >= min;\nconst mismatch = !!o.proceed !== proceed;\nconst email = String(c.candidateEmail || o.candidateEmail || '').trim();\nconst name = String(c.candidateName || o.candidateName || '').trim();\nconst list = a => (Array.isArray(a) ? a : []).map(x => '- ' + x).join('\\n');\nconst crit = (Array.isArray(o.criteria) ? o.criteria : []).map(x => x.name + ' ' + x.score + '/10: ' + x.justification).join('\\n');\nconst cut = t => String(t || '').slice(0, 1900);\nconst note = (mismatch ? 'Check the email draft: the AI wrote it for ' + (o.proceed ? 'proceed' : 'reject') + ' but the score ' + overall + ' vs minScore ' + min + ' gives ' + (proceed ? 'proceed' : 'reject') + '. ' : '') + String(o.internalNote || '');\nconst job = c.jobTitle || 'the role';\nreturn { json: {\n  pageId: c.pageId, candidateName: name, candidateEmail: email, overallScore: overall, proceed, emailMismatch: mismatch,\n  newStatus: proceed ? s.statusIfProceed : s.statusIfReject,\n  summary: cut(String(o.summary || '') + '\\n\\nStrengths:\\n' + list(o.strengths) + '\\n\\nGaps:\\n' + list(o.gaps)),\n  internalNote: cut(note + '\\n\\n' + crit),\n  draftSubject: String((o.email && o.email.subject) || 'Your application'),\n  draftBody: String((o.email && o.email.body) || ''),\n  teamSubject: 'CV scoring: ' + (name || 'candidate') + ' for ' + job + ' (' + overall + '/100, ' + (proceed ? 'proceed' : 'reject') + ')',\n  teamBody: 'Candidate: ' + name + '\\nRole: ' + job + '\\nScore: ' + overall + '/100 (' + (o.recommendation || '') + ')\\nSuggested next step: ' + (o.nextStep || '') + '\\n\\n' + String(o.summary || '') + '\\n\\nStrengths:\\n' + list(o.strengths) + '\\n\\nGaps:\\n' + list(o.gaps) + '\\n\\n' + crit + '\\n\\nThis is an AI suggestion. A person decides.'\n} };",
+        "mode": "runOnceForEachItem"
+      },
+      "id": "f-node-14",
+      "name": "Read the score and prepare the update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2700,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "update",
+        "pageId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.pageId }}"
+        },
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "CV Score|number",
+              "numberValue": "={{ $json.overallScore }}"
+            },
+            {
+              "key": "Scoring Summary|rich_text",
+              "textContent": "={{ $json.summary }}"
+            },
+            {
+              "key": "Internal Note|rich_text",
+              "textContent": "={{ $json.internalNote }}"
+            },
+            {
+              "key": "Status|status",
+              "statusValue": "={{ $json.newStatus }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f-node-15",
+      "name": "Update the candidate in Notion",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        2940,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c0",
+              "leftValue": "={{ $('Settings').item.json.createCandidateDraft }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "c1",
+              "leftValue": "={{ $('Read the score and prepare the update').item.json.candidateEmail }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f-node-16",
+      "name": "Draft an email to the candidate?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3200,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "draft",
+        "subject": "={{ $('Read the score and prepare the update').item.json.draftSubject }}",
+        "emailType": "text",
+        "message": "={{ $('Read the score and prepare the update').item.json.draftBody }}",
+        "options": {
+          "sendTo": "={{ $('Read the score and prepare the update').item.json.candidateEmail }}"
+        }
+      },
+      "id": "f-node-17",
+      "name": "Create Gmail draft for the candidate (never sends)",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        3460,
+        -120
+      ],
+      "disabled": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c0",
+              "leftValue": "={{ $('Settings').item.json.notifyTeam }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "c1",
+              "leftValue": "={{ $('Settings').item.json.teamEmail }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f-node-18",
+      "name": "Notify the team?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3200,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "draft",
+        "subject": "={{ $('Read the score and prepare the update').item.json.teamSubject }}",
+        "emailType": "text",
+        "message": "={{ $('Read the score and prepare the update').item.json.teamBody }}",
+        "options": {
+          "sendTo": "={{ $('Settings').item.json.teamEmail }}"
+        }
+      },
+      "id": "f-node-19",
+      "name": "Create Gmail draft for the team (never sends)",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        3460,
+        180
+      ],
+      "disabled": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "content": "## Notion ATS: score every CV with AI, update the candidate, draft the reply (never sends)\nMove a candidate to the status **CV Scoring (AI)** in your Notion recruiting database. This workflow reads the CV (PDF) and the job requirements, scores the fit with your own AI model through OpenRouter (default: Qwen3 235B, about $0.001 per CV), writes the score, a summary and an internal note back to the candidate's Notion page, and moves the status on. Optionally it creates a Gmail **draft** to the candidate and a Gmail draft summary for your team. It never sends an email and never rejects anyone by itself: a recruiter decides.\n\n**How it works**\n1. A Notion trigger checks your candidate database every minute for updated pages.\n2. Only pages with the status in `triggerStatus` and a CV file continue (every other update is ignored).\n3. The CV PDF is downloaded and its text extracted.\n4. The job requirements come from the candidate's Notion page: the property **Job description** (text, or a rollup of the linked job page). Optional: with `fetchJobAdWithApify` on and a **Job ad URL**, the Apify actor `santamaria-automations/job-feed` fetches the full job ad text too.\n5. The AI model returns a structured result (five criteria with scores and reasons, an overall score 0-100, strengths, gaps, next step, an email draft). Your `minScore` decides proceed or reject, not the AI.\n6. The candidate page gets **CV Score**, **Scoring Summary**, **Internal Note** and the new **Status**.\n7. Optional Gmail drafts (off by default): one to the candidate, one summary for your team.\n\n**Setup (about 15 minutes)**\n1. Create the Notion database with the properties in the sticky \"Notion database setup\" (or add them to yours).\n2. Connect Notion (trigger and update node: pick your database in the trigger), and an OpenRouter account and API key for the AI model (default model `qwen/qwen3-235b-a22b-2507`; change the model id in the OpenRouter node, sticky \"AI model\").\n3. Open the **Settings** node: set `companyName`, `recruiterName`, `minScore`, `outputLanguage`.\n4. Optional Gmail drafts: set `createCandidateDraft` and/or `notifyTeam` (+ `teamEmail`) to true, right-click the Gmail node > Activate, connect Gmail.\n5. Activate the workflow, then set one candidate to **CV Scoring (AI)**.\n\n**Cost:** n8n and Notion as per your plans, plus OpenRouter usage (about $0.001 per CV with the default model): one AI call per CV, no other paid service. The optional Apify job-feed fetch bills Apify pay-per-event prices (see the actor page https://apify.com/santamaria-automations/job-feed; free Apify sign-up: https://console.apify.com/sign-up?fpr=0khfbz).\n\n**Limits:** text-based PDFs only (scans have no text and stop with a message). The score is a suggestion; check it before you act, and follow your local rules for automated candidate screening and data protection (for example GDPR). The CV text is sent to the AI provider you connect.",
+        "width": 980,
+        "height": 520,
+        "color": 4
+      },
+      "id": "f-node-20",
+      "name": "Sticky Note - Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        -620
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Notion database setup (exact property names)\nCreate a database (or add these properties to yours). Names are case-sensitive.\n\n| Property | Type | Who fills it |\n|---|---|---|\n| Name | Title | you |\n| Status | **Status** | you / workflow |\n| Resume | Files & media (the CV as PDF) | you |\n| Email Address | Email | you (optional: else read from the CV) |\n| Job title | Text | you (optional) |\n| Job description | Text, or a **Rollup** of the linked job page's description | you |\n| Job ad URL | URL | you (optional, only for the Apify option) |\n| CV Score | **Number** | workflow |\n| Scoring Summary | Text | workflow |\n| Internal Note | Text | workflow |\n\n**Status options that must exist** (Notion cannot create them from outside): `CV Scoring (AI)`, `AI: Proceed`, `AI: Reject (draft)`. Different names are fine: change `triggerStatus`, `statusIfProceed`, `statusIfReject` in Settings to match.\n\nJob requirements: put them in **Job description** on the candidate page, or link a Jobs database and roll up its description into that property. They are never hard-coded in the workflow.\n\nConnect the Notion integration to the database (Notion: ... > Connections). The trigger finds the database in the list.",
+        "width": 500,
+        "height": 760,
+        "color": 7
+      },
+      "id": "f-node-21",
+      "name": "Sticky Note - Notion database setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Settings explained\n- `triggerStatus` (CV Scoring (AI)): the status that starts scoring.\n- `statusIfProceed` / `statusIfReject`: statuses written after scoring. They differ from `triggerStatus`, so the update does not start scoring again.\n- `minScore` (70): overall scores of 0-100 at or above this are \"proceed\".\n- `outputLanguage` (English): language of the summary, notes and the candidate email draft. Any language.\n- `companyName`, `recruiterName`: sign the email draft.\n- `schedulingLink` (empty): a booking link for the \"proceed\" draft; empty writes [scheduling link] as a placeholder.\n- `extraCriteria` (empty): extra instructions for the AI, for example \"Only count experience from the last 8 years\".\n- `createCandidateDraft` (false): Gmail draft to the candidate. `notifyTeam` (false) + `teamEmail`: Gmail draft summary for your team. Both also need their Gmail node activated.\n- `fetchJobAdWithApify` (false): also fetch the full job ad text from **Job ad URL** with Apify job-feed. `maxCostPerRunUsd` (0.1): cost cap for that Apify run.\n- `maxCvChars` (15000): the CV text is cut to this length before it goes to the AI.",
+        "width": 480,
+        "height": 520,
+        "color": 7
+      },
+      "id": "f-node-22",
+      "name": "Sticky Note - Settings explained",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        240,
+        -340
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### AI model (swappable)\nThe default is `qwen/qwen3-235b-a22b-2507` through **OpenRouter** (about $0.001 per CV in our test). Create an OpenRouter API key, add it as the credential of the OpenRouter node. To use another model, type another OpenRouter model id in that node. We also tested `google/gemini-3.1-flash-lite` (about $0.0014 per CV) and `deepseek/deepseek-v4.1-flash` (about $0.002 per CV): both scored a strong and a weak test CV correctly. Any OpenRouter model that can follow a JSON schema works; check the price on openrouter.ai/models. You can also delete the OpenRouter node and use **OpenAI Chat Model**, **Anthropic Chat Model** or another chat model node, connected to **Score the CV against the job (AI)**: the structured output parser and the prompt work with any chat model.\nTip: a low temperature (0.2) keeps scores steady between runs.",
+        "width": 420,
+        "height": 330,
+        "color": 7
+      },
+      "id": "f-node-23",
+      "name": "Sticky Note - AI model",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2400,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Optional: Gmail drafts (never sent)\nBoth Gmail nodes are deactivated and the IF nodes route around them, so the workflow can be activated without a Gmail credential. To use one: set its Settings switch to true, right-click the node > **Activate**, connect Gmail.\n- **Candidate draft:** subject and body written by the AI (in `outputLanguage`), addressed to the email on the page or in the CV. Open Gmail Drafts, read it, edit it, send it yourself.\n- **Team draft:** a score summary sent to `teamEmail` as a draft too. Nothing in this workflow sends mail.\nIf the score and the email tone disagree (the AI wrote a \"proceed\" mail for a \"reject\" score), the Internal Note starts with \"Check the email draft\".",
+        "width": 560,
+        "height": 330,
+        "color": 7
+      },
+      "id": "f-node-24",
+      "name": "Sticky Note - Gmail drafts",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        3200,
+        -520
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Optional: full job ad text with Apify job-feed (off by default)\nIf your job pages only hold a link, set `fetchJobAdWithApify` to true, fill **Job ad URL** on the candidate, right-click the node **Fetch the job ad text with Apify job-feed (optional)** > **Activate** and connect Apify (free sign-up: https://console.apify.com/sign-up?fpr=0khfbz). The actor `santamaria-automations/job-feed` reads the page and returns the description, which is added to **Job description**. The run is capped by `maxCostPerRunUsd`. Job-feed is billed per job at Apify Store prices; check the actor page for the current price.\nThe option handles one candidate per run. If the page cannot be read, the workflow uses your **Job description** text, or stops with a message when that is empty.",
+        "width": 620,
+        "height": 330,
+        "color": 7
+      },
+      "id": "f-node-25",
+      "name": "Sticky Note - Optional job ad fetch",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        -520
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### When something is missing\nThe workflow stops with a clear message (see the failed execution) instead of scoring on empty input: no readable text in the PDF (scanned image), no job requirements, or no Apify text when you asked for it. Fix the candidate page and set the status to **CV Scoring (AI)** again.",
+        "width": 480,
+        "height": 260,
+        "color": 7
+      },
+      "id": "f-node-26",
+      "name": "Sticky Note - Errors",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        720,
+        280
+      ]
+    }
+  ],
+  "connections": {
+    "When a candidate page is updated in Notion": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Status is CV Scoring (AI) and a CV is attached?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Status is CV Scoring (AI) and a CV is attached?": {
+      "main": [
+        [
+          {
+            "node": "Download the CV PDF from Notion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download the CV PDF from Notion": {
+      "main": [
+        [
+          {
+            "node": "Extract text from the CV PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract text from the CV PDF": {
+      "main": [
+        [
+          {
+            "node": "Collect the CV and the job requirements",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect the CV and the job requirements": {
+      "main": [
+        [
+          {
+            "node": "Fetch the full job ad with Apify?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch the full job ad with Apify?": {
+      "main": [
+        [
+          {
+            "node": "Fetch the job ad text with Apify job-feed (optional)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build the scoring prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch the job ad text with Apify job-feed (optional)": {
+      "main": [
+        [
+          {
+            "node": "Add the job ad text to the requirements",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add the job ad text to the requirements": {
+      "main": [
+        [
+          {
+            "node": "Build the scoring prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build the scoring prompt": {
+      "main": [
+        [
+          {
+            "node": "Score the CV against the job (AI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Score the CV against the job (AI)": {
+      "main": [
+        [
+          {
+            "node": "Read the score and prepare the update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read the score and prepare the update": {
+      "main": [
+        [
+          {
+            "node": "Update the candidate in Notion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter model (change the model id here)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Score the CV against the job (AI)",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured output parser (score schema)": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Score the CV against the job (AI)",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update the candidate in Notion": {
+      "main": [
+        [
+          {
+            "node": "Draft an email to the candidate?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Notify the team?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Draft an email to the candidate?": {
+      "main": [
+        [
+          {
+            "node": "Create Gmail draft for the candidate (never sends)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify the team?": {
+      "main": [
+        [
+          {
+            "node": "Create Gmail draft for the team (never sends)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

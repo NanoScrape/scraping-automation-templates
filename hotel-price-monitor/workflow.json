@@ -1,0 +1,2113 @@
+{
+  "name": "Track Booking.com Hotel Prices and Flag Price Changes in Google Sheets with Apify",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 7
+            }
+          ]
+        }
+      },
+      "id": "g-node-01",
+      "name": "Every day at 7 AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -60,
+        0
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "g-node-02",
+      "name": "Run manually",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "s0",
+              "name": "destination",
+              "value": "Lisbon",
+              "type": "string"
+            },
+            {
+              "id": "s1",
+              "name": "checkin",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "s2",
+              "name": "checkout",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "s3",
+              "name": "adults",
+              "value": 2,
+              "type": "number"
+            },
+            {
+              "id": "s4",
+              "name": "rooms",
+              "value": 1,
+              "type": "number"
+            },
+            {
+              "id": "s5",
+              "name": "currency",
+              "value": "EUR",
+              "type": "string"
+            },
+            {
+              "id": "s6",
+              "name": "sortBy",
+              "value": "POPULARITY",
+              "type": "string"
+            },
+            {
+              "id": "s7",
+              "name": "maxHotels",
+              "value": 20,
+              "type": "number"
+            },
+            {
+              "id": "s8",
+              "name": "minPriceChangePercent",
+              "value": 5,
+              "type": "number"
+            },
+            {
+              "id": "s9",
+              "name": "sheetName",
+              "value": "Hotel price monitor - NanoScrape",
+              "type": "string"
+            },
+            {
+              "id": "s10",
+              "name": "maxCostPerRunUsd",
+              "value": 0.25,
+              "type": "number"
+            },
+            {
+              "id": "s11",
+              "name": "maxWaitMinutes",
+              "value": 15,
+              "type": "number"
+            },
+            {
+              "id": "s12",
+              "name": "apifyRunTimeoutMinutes",
+              "value": 30,
+              "type": "number"
+            },
+            {
+              "id": "s13",
+              "name": "webhookUrl",
+              "value": "",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "g-node-03",
+      "name": "Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        140,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://www.googleapis.com/drive/v3/files",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "=name = '{{ $('Settings').first().json.sheetName.replace(/'/g, \"\\\\'\") }}' and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false"
+            },
+            {
+              "name": "fields",
+              "value": "files(id,name,webViewLink)"
+            },
+            {
+              "name": "orderBy",
+              "value": "createdTime"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "g-setup-1",
+      "name": "Find the Sheet by name",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        360,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e1",
+              "leftValue": "={{ ($json.files || []).length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "g-setup-2",
+      "name": "Sheet exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        580,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "u1",
+              "name": "sheetId",
+              "value": "={{ $json.files[0].id }}",
+              "type": "string"
+            },
+            {
+              "id": "u2",
+              "name": "sheetUrl",
+              "value": "={{ $json.files[0].webViewLink }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "g-setup-3",
+      "name": "Use the existing Sheet",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        800,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "spreadsheet",
+        "title": "={{ $('Settings').first().json.sheetName }}",
+        "sheetsUi": {
+          "sheetValues": [
+            {
+              "title": "Prices"
+            },
+            {
+              "title": "Latest"
+            },
+            {
+              "title": "Runs"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "g-setup-4",
+      "name": "Create the Sheet (first run)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        800,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $json.spreadsheetId }}/values:batchUpdate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ valueInputOption: 'RAW', data: [{range:\"'Prices'!A1\",values:[[\"checked_at\", \"flag\", \"hotel\", \"city\", \"checkin\", \"checkout\", \"nights\", \"price_total\", \"price_per_night\", \"currency\", \"previous_price\", \"change\", \"change_pct\", \"review_score\", \"stars\", \"free_cancellation\", \"breakfast_included\", \"deal\", \"distance_from_center\", \"url\", \"hotel_id\", \"key\"]]},{range:\"'Latest'!A1\",values:[[\"checked_at\", \"flag\", \"hotel\", \"city\", \"checkin\", \"checkout\", \"nights\", \"price_total\", \"price_per_night\", \"currency\", \"previous_price\", \"change\", \"change_pct\", \"review_score\", \"stars\", \"free_cancellation\", \"breakfast_included\", \"deal\", \"distance_from_center\", \"url\", \"hotel_id\", \"key\"]]},{range:\"'Runs'!A1\",values:[[\"started_at\", \"search\", \"mode\", \"status\", \"jobs\", \"charged_usd\", \"run_url\", \"collected_at\", \"note\"]]}] }) }}",
+        "options": {}
+      },
+      "id": "g-setup-5",
+      "name": "Write the header rows",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1020,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $('Create the Sheet (first run)').first().json.spreadsheetId }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "fields",
+              "value": "sheets.properties(sheetId,title)"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "g-setup-8",
+      "name": "Read the tab IDs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1240,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $('Create the Sheet (first run)').first().json.spreadsheetId }}:batchUpdate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ requests: [{ updateSheetProperties: { properties: { sheetId: $json.sheets.find(s => s.properties.title === \"Prices\").properties.sheetId, gridProperties: { frozenRowCount: 1 } }, fields: 'gridProperties.frozenRowCount' } }, { updateSheetProperties: { properties: { sheetId: $json.sheets.find(s => s.properties.title === \"Latest\").properties.sheetId, gridProperties: { frozenRowCount: 1 } }, fields: 'gridProperties.frozenRowCount' } }, { updateSheetProperties: { properties: { sheetId: $json.sheets.find(s => s.properties.title === \"Runs\").properties.sheetId, gridProperties: { frozenRowCount: 1 } }, fields: 'gridProperties.frozenRowCount' } }, { repeatCell: { range: { sheetId: $json.sheets.find(s => s.properties.title === \"Prices\").properties.sheetId, startRowIndex: 1 }, cell: { userEnteredFormat: { wrapStrategy: 'CLIP' } }, fields: 'userEnteredFormat.wrapStrategy' } }, { updateDimensionProperties: { range: { sheetId: $json.sheets.find(s => s.properties.title === \"Prices\").properties.sheetId, dimension: 'COLUMNS', startIndex: 0, endIndex: 1 }, properties: { pixelSize: 130 }, fields: 'pixelSize' } }, { updateDimensionProperties: { range: { sheetId: $json.sheets.find(s => s.properties.title === \"Prices\").properties.sheetId, dimension: 'COLUMNS', startIndex: 1, endIndex: 2 }, properties: { pixelSize: 110 }, fields: 'pixelSize' } }, { updateDimensionProperties: { range: { sheetId: $json.sheets.find(s => s.properties.title === \"Prices\").properties.sheetId, dimension: 'COLUMNS', startIndex: 2, endIndex: 3 }, properties: { pixelSize: 260 }, fields: 'pixelSize' } }, { updateDimensionProperties: { range: { sheetId: $json.sheets.find(s => s.properties.title === \"Prices\").properties.sheetId, dimension: 'COLUMNS', startIndex: 19, endIndex: 20 }, properties: { pixelSize: 200 }, fields: 'pixelSize' } }, { updateDimensionProperties: { range: { sheetId: $json.sheets.find(s => s.properties.title === \"Prices\").properties.sheetId, dimension: 'COLUMNS', startIndex: 17, endIndex: 18 }, properties: { pixelSize: 140 }, fields: 'pixelSize' } }, { repeatCell: { range: { sheetId: $json.sheets.find(s => s.properties.title === \"Latest\").properties.sheetId, startRowIndex: 1 }, cell: { userEnteredFormat: { wrapStrategy: 'CLIP' } }, fields: 'userEnteredFormat.wrapStrategy' } }, { updateDimensionProperties: { range: { sheetId: $json.sheets.find(s => s.properties.title === \"Latest\").properties.sheetId, dimension: 'COLUMNS', startIndex: 0, endIndex: 1 }, properties: { pixelSize: 130 }, fields: 'pixelSize' } }, { updateDimensionProperties: { range: { sheetId: $json.sheets.find(s => s.properties.title === \"Latest\").properties.sheetId, dimension: 'COLUMNS', startIndex: 1, endIndex: 2 }, properties: { pixelSize: 110 }, fields: 'pixelSize' } }, { updateDimensionProperties: { range: { sheetId: $json.sheets.find(s => s.properties.title === \"Latest\").properties.sheetId, dimension: 'COLUMNS', startIndex: 2, endIndex: 3 }, properties: { pixelSize: 260 }, fields: 'pixelSize' } }, { updateDimensionProperties: { range: { sheetId: $json.sheets.find(s => s.properties.title === \"Latest\").properties.sheetId, dimension: 'COLUMNS', startIndex: 19, endIndex: 20 }, properties: { pixelSize: 200 }, fields: 'pixelSize' } }, { updateDimensionProperties: { range: { sheetId: $json.sheets.find(s => s.properties.title === \"Latest\").properties.sheetId, dimension: 'COLUMNS', startIndex: 17, endIndex: 18 }, properties: { pixelSize: 140 }, fields: 'pixelSize' } }] }) }}",
+        "options": {}
+      },
+      "id": "g-setup-9",
+      "name": "Add the dropdowns",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1460,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "w1",
+              "name": "sheetId",
+              "value": "={{ $('Create the Sheet (first run)').first().json.spreadsheetId }}",
+              "type": "string"
+            },
+            {
+              "id": "w2",
+              "name": "sheetUrl",
+              "value": "={{ $('Create the Sheet (first run)').first().json.spreadsheetUrl }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "g-setup-6",
+      "name": "Use the new Sheet",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1680,
+        200
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "g-setup-7",
+      "name": "Sheet ready",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1900,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 0. Your Sheet (sets itself up)\nLooks for a Google Sheet called `sheetName` in your Drive. On the first run it isn't there, so the workflow creates it with **3 tabs** and header rows:\n- **Prices**: the history, one row per hotel per check (never rewritten). Filter the `flag` column for the changes.\n- **Latest**: one row per hotel and stay with the newest price, the previous price and the flag.\n- **Runs**: a log of every Apify run.\nLater runs find the Sheet by name. Rename it in Drive? Change `sheetName` too.",
+        "height": 560,
+        "width": 1760,
+        "color": 5
+      },
+      "id": "g-setup-note",
+      "name": "Sticky Note - Sheet setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        320,
+        -180
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Sheet ready').first().json.sheetId }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Prices"
+        },
+        "options": {}
+      },
+      "id": "g-node-04",
+      "name": "Read Prices tab",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2000,
+        80
+      ],
+      "alwaysOutputData": true,
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Sheet ready').first().json.sheetId }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Runs"
+        },
+        "options": {}
+      },
+      "id": "g-node-05",
+      "name": "Read Runs tab",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2220,
+        80
+      ],
+      "alwaysOutputData": true,
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Plans ONE Booking.com search for the dates in Settings (started below without waiting).\n// Stops with a clear message before any Apify cost when the dates are missing, wrong or in the past.\n// No new run when the same search is still RUNNING from an earlier execution, or when this execution was started by the webhook (it only collects).\nconst s = $('Settings').first().json;\nconst openRuns = () => $('Read Runs tab').all().map(i => i.json)\n  .filter(r => /^(RUNNING|READY)$/i.test(String(r.status || '').trim()) && String(r.run_url || '').trim())\n  .map(r => ({ id: String(r.run_url).trim().replace(/\\/+$/, '').split('/').pop(), run_url: String(r.run_url).trim(), search: String(r.search || ''), mode: String(r.mode || ''), status: String(r.status).trim().toUpperCase() }));\n// Set when this execution was started by the \"Apify run finished\" webhook: only that run is collected, and nothing new is started.\nlet hookRun = '';\ntry { hookRun = String($('Apify run finished').first().json.body.runId || ''); } catch (e) {}\nconst clean = v => String(v == null ? '' : v).replace(/\\s+/g, ' ').trim();\nconst dest = clean(s.destination), ci = clean(s.checkin).slice(0, 10), co = clean(s.checkout).slice(0, 10);\nconst day = /^\\d{4}-\\d{2}-\\d{2}$/;\nif (!hookRun) {\n  if (!dest) throw new Error('Set destination in the Settings node (a city, for example Lisbon).');\n  if (!day.test(ci) || !day.test(co)) throw new Error('Set checkin and checkout in the Settings node as YYYY-MM-DD (for example 2027-03-12 and 2027-03-14), a stay in the future.');\n  if (co <= ci) throw new Error('checkout must be after checkin.');\n  if (ci < $now.toFormat('yyyy-LL-dd')) throw new Error('The stay in Settings (' + ci + ') is in the past. Set new checkin and checkout dates, or the comparison with the old prices would start over.');\n}\nconst adults = Math.max(1, Math.round(Number(s.adults) || 2)), rooms = Math.max(1, Math.round(Number(s.rooms) || 1));\nconst currency = clean(s.currency).toUpperCase() || 'EUR';\nconst search = [dest, ci, co, adults, rooms, currency].join(' | ');\nconst open = openRuns().some(r => r.mode === 'hotel prices' && r.search === search);\nconst starts = (hookRun || open) ? [] : [{ search, mode: 'hotel prices', body: {\n  destination: dest, destType: 'CITY', checkin: ci, checkout: co, adults, rooms, currency,\n  sortBy: clean(s.sortBy) || 'POPULARITY', maxResults: Math.max(1, Math.round(Number(s.maxHotels) || 20)) } }];\nreturn [{ json: { starts } }];"
+      },
+      "id": "g-node-06",
+      "name": "Plan the hotel price search",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2640,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "a1",
+              "leftValue": "={{ $json.starts.length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "g-node-07",
+      "name": "Anything to start? (hotel price)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2860,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// One Apify run per search. The start query is built here (timeout, memory, cost cap, optional ad-hoc webhook).\nconst s = $('Settings').first().json;\nconst hook = String(s.webhookUrl || '').trim();\nconst b64 = t => typeof Buffer !== 'undefined' ? Buffer.from(t, 'utf8').toString('base64') : btoa(unescape(encodeURIComponent(t)));\nconst query = { waitForFinish: 0, timeout: Math.round((Number(s.apifyRunTimeoutMinutes) || 240) * 60), memory: 256, maxTotalChargeUsd: Number(s.maxCostPerRunUsd) || 0.25 };\nif (hook) query.webhooks = b64(JSON.stringify([{ eventTypes: ['ACTOR.RUN.SUCCEEDED', 'ACTOR.RUN.FAILED', 'ACTOR.RUN.ABORTED', 'ACTOR.RUN.TIMED_OUT'],\n  requestUrl: hook, payloadTemplate: '{\"runId\": {{resource.id}}, \"status\": {{resource.status}}}' }]));\nreturn $input.first().json.starts.map(x => ({ json: { ...x, query } }));"
+      },
+      "id": "g-node-08",
+      "name": "One item per hotel price search",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3080,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/santamaria-automations~booking-com-scraper/runs",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "apifyApi",
+        "sendQuery": true,
+        "specifyQuery": "json",
+        "jsonQuery": "={{ JSON.stringify($json.query) }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "id": "g-node-09",
+      "name": "Start hotel price run (no waiting)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3300,
+        80
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// One Runs-tab row per started run. A run that could not be started is logged too (status FAILED, with the reason).\nconst src = $('One item per hotel price search').all();\nconst now = $now.toFormat('yyyy-LL-dd HH:mm');\nreturn $input.all().map((it, i) => {\n  const r = (it.json && it.json.data) || it.json || {}, s = (src[i] || { json: {} }).json;\n  const e0 = (it.json && it.json.error) || r.error;\n  const err = e0 ? String((e0 && (e0.message || e0.description)) || e0) : (r.id ? '' : String(r.message || 'no run ID returned'));\n  return { json: { started_at: now, search: s.search || '', mode: s.mode || '', status: r.id ? 'RUNNING' : 'FAILED', jobs: '', charged_usd: '',\n    run_url: r.id ? 'https://console.apify.com/view/runs/' + r.id : '', collected_at: r.id ? '' : now, note: r.id ? '' : 'could not start: ' + err, run_id: r.id || '' } };\n});"
+      },
+      "id": "g-node-10",
+      "name": "Log the new hotel price runs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3520,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Sheet ready').first().json.sheetId }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Runs"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "started_at": "={{ $json.started_at }}",
+            "search": "={{ $json.search }}",
+            "mode": "={{ $json.mode }}",
+            "status": "={{ $json.status }}",
+            "jobs": "={{ $json.jobs }}",
+            "charged_usd": "={{ $json.charged_usd }}",
+            "run_url": "={{ $json.run_url }}",
+            "collected_at": "={{ $json.collected_at }}",
+            "note": "={{ $json.note }}"
+          },
+          "schema": [
+            {
+              "id": "started_at",
+              "displayName": "started_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "search",
+              "displayName": "search",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "mode",
+              "displayName": "mode",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "jobs",
+              "displayName": "jobs",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "charged_usd",
+              "displayName": "charged_usd",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "run_url",
+              "displayName": "run_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "collected_at",
+              "displayName": "collected_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "note",
+              "displayName": "note",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {
+          "cellFormat": "USER_ENTERED"
+        }
+      },
+      "id": "g-node-11",
+      "name": "Add to Runs tab (hotel price)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        3740,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Everything to poll: the runs started just now plus the runs of earlier executions that are still RUNNING (for this part of the workflow).\nconst openRuns = () => $('Read Runs tab').all().map(i => i.json)\n  .filter(r => /^(RUNNING|READY)$/i.test(String(r.status || '').trim()) && String(r.run_url || '').trim())\n  .map(r => ({ id: String(r.run_url).trim().replace(/\\/+$/, '').split('/').pop(), run_url: String(r.run_url).trim(), search: String(r.search || ''), mode: String(r.mode || ''), status: String(r.status).trim().toUpperCase() }));\nconst mine = ['hotel prices'];\nconst hook = String($('Settings').first().json.webhookUrl || '').trim();\nlet hookRun = '';\ntry { hookRun = String($('Apify run finished').first().json.body.runId || ''); } catch (e) {}\nlet fresh = [];\n// With a webhook URL set, new runs are not watched here: Apify calls the webhook when they finish.\nif (!hook) try { fresh = $('Log the new hotel price runs').all().map(i => i.json).filter(r => r.run_id).map(r => ({ id: r.run_id, run_url: r.run_url, search: r.search, mode: r.mode, status: 'RUNNING' })); } catch (e) {}\nconst seen = new Set();\nconst out = [];\nfor (const r of [...fresh, ...openRuns().filter(r => mine.includes(r.mode) && (!hookRun || r.id === hookRun))]) { if (!r.id || seen.has(r.id)) continue; seen.add(r.id); out.push({ json: r }); }\nreturn out;"
+      },
+      "id": "g-node-12",
+      "name": "Runs to watch (hotel price)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3960,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "Actor runs",
+        "operation": "Get run",
+        "runId": "={{ $json.id }}"
+      },
+      "id": "g-node-13",
+      "name": "Get hotel price run status",
+      "type": "@apify/n8n-nodes-apify.apify",
+      "typeVersion": 2,
+      "position": [
+        4180,
+        80
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Sort the runs by outcome. Keeps looping while a run is still open and Settings.maxWaitMinutes is not used up.\nconst s = $('Settings').first().json;\nconst maxPolls = String(s.webhookUrl || '').trim() ? 0 : Math.floor((Number(s.maxWaitMinutes) >= 0 ? Number(s.maxWaitMinutes) : 30) * 60 / 70);\nconst polls = $runIndex + 1;\nconst base = $('Runs to watch (hotel price)').all().map(i => i.json);\nconst got = $input.all().map(i => i.json || {});\n// What the run charges you: pay-per-event actors = sum(chargedEventCounts x event price) (+ platform usage only when the run bills usage to the user); other runs = usageTotalUsd.\nconst chargedOf = r => {\n  const ev = (((r.pricingInfo || {}).pricingPerEvent || {}).actorChargeEvents) || null;\n  if (!ev || !/PAY_PER_EVENT/i.test(String((r.pricingInfo || {}).pricingModel || ''))) return r.usageTotalUsd;\n  const cnt = r.chargedEventCounts || {};\n  let t = 0;\n  for (const k of Object.keys(cnt)) t += (Number(cnt[k]) || 0) * (Number((ev[k] || {}).eventPriceUsd) || 0);\n  if (String(r.platformUsageBillingModel || '').toUpperCase() === 'USER') t += Number(r.usageTotalUsd) || 0;\n  return t;\n};\nconst isOpen = st => ['READY', 'RUNNING', 'TIMING-OUT', 'ABORTING'].includes(st);\nconst rows = base.map((b, i) => { const r = got[i] || {}; return { ...b, status: String(r.status || (r.error ? 'UNKNOWN' : b.status || 'UNKNOWN')).toUpperCase(), defaultDatasetId: r.defaultDatasetId || '',\n  charged: chargedOf(r), jobs: '', note: r.error ? 'could not read the run status: ' + String((r.error && r.error.message) || r.error) : '' }; });\nconst stillRunning = rows.some(r => isOpen(r.status)) && polls <= maxPolls;\nreturn rows.map(r => ({ json: { ...r, stillRunning, polls, outcome: r.status === 'SUCCEEDED' ? 'done' : isOpen(r.status) ? 'running' : 'problem' } }));"
+      },
+      "id": "g-node-14",
+      "name": "Check the hotel price runs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4400,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "r1",
+              "leftValue": "={{ $json.stillRunning }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "g-node-15",
+      "name": "Still running? (hotel price)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        4620,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": 70,
+        "unit": "seconds"
+      },
+      "id": "g-node-16",
+      "name": "Wait before checking again (hotel price)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        4620,
+        280
+      ],
+      "webhookId": "g-wait-16"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "r2",
+              "leftValue": "={{ $json.outcome }}",
+              "rightValue": "done",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "g-node-17",
+      "name": "Run succeeded? (hotel price)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        4840,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "Datasets",
+        "operation": "Get items",
+        "datasetId": "={{ $json.defaultDatasetId }}",
+        "offset": 0,
+        "limit": 5000,
+        "options": {}
+      },
+      "id": "g-node-18",
+      "name": "Get hotel price results",
+      "type": "@apify/n8n-nodes-apify.apify",
+      "typeVersion": 2,
+      "position": [
+        5060,
+        80
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Runs of this execution whose dataset was just processed: mark them collected, so they are never processed twice.\nconst fmt = u => (u == null || u === '' || isNaN(Number(u))) ? '' : String(Math.round(Number(u) * 10000) / 10000);\nconst now = $now.toFormat('yyyy-LL-dd HH:mm');\nreturn $('Check the hotel price runs').all().map(i => i.json).filter(r => r.outcome === 'done' && !r.stillRunning)\n  .map(r => ({ json: { run_url: r.run_url, status: 'SUCCEEDED', jobs: r.jobs == null ? '' : r.jobs, charged_usd: fmt(r.charged), collected_at: now, note: '' } }));"
+      },
+      "id": "g-node-19",
+      "name": "Mark the hotel price runs collected",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5280,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "r3",
+              "leftValue": "={{ $json.outcome }}",
+              "rightValue": "problem",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "g-node-20",
+      "name": "Run ended with a problem? (hotel price)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        5060,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const fmt = u => (u == null || u === '' || isNaN(Number(u))) ? '' : String(Math.round(Number(u) * 10000) / 10000);\nconst r = $json;\nconst now = $now.toFormat('yyyy-LL-dd HH:mm');\nconst note = r.status === 'UNKNOWN' ? (r.note || 'could not read the run status (deleted or expired?)') : 'The run ended with status ' + r.status + '. Open run_url to see why. Nothing was collected from it.';\nreturn { json: { run_url: r.run_url, status: r.status, jobs: '', charged_usd: fmt(r.charged), collected_at: now, note } };",
+        "mode": "runOnceForEachItem"
+      },
+      "id": "g-node-21",
+      "name": "Describe the hotel price run problem",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5280,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Sheet ready').first().json.sheetId }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Runs"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "run_url": "={{ $json.run_url }}",
+            "status": "={{ $json.status }}",
+            "jobs": "={{ $json.jobs }}",
+            "charged_usd": "={{ $json.charged_usd }}",
+            "collected_at": "={{ $json.collected_at }}",
+            "note": "={{ $json.note }}"
+          },
+          "matchingColumns": [
+            "run_url"
+          ],
+          "schema": [
+            {
+              "id": "run_url",
+              "displayName": "run_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "jobs",
+              "displayName": "jobs",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "charged_usd",
+              "displayName": "charged_usd",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "collected_at",
+              "displayName": "collected_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "note",
+              "displayName": "note",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {
+          "cellFormat": "USER_ENTERED"
+        }
+      },
+      "id": "g-node-22",
+      "name": "Update Runs row (hotel price)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        5500,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "nanoscrape-hotel-prices",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "g-node-23",
+      "name": "Apify run finished",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -60,
+        360
+      ],
+      "webhookId": "g-hook"
+    },
+    {
+      "parameters": {
+        "content": "### Long runs: nothing waits for hours\nApify runs are **started without waiting** and logged in the **Runs** tab of your Sheet (started_at, search, mode, status, jobs, charged_usd, run_url, collected_at, note).\n\n1. **Collect first:** runs still marked RUNNING from an earlier execution are checked. A finished run is read and processed, then marked SUCCEEDED with `collected_at`: a run is never processed twice. FAILED, ABORTED or TIMED-OUT runs get that status and a note.\n2. **Start:** new runs for this execution all start at once. A search whose previous run is still RUNNING is not started again (no double cost).\n3. **Wait:** every 70 seconds the runs are checked, for at most `maxWaitMinutes` (default 30). A run that is not finished by then stays RUNNING and is collected by the next scheduled execution or manual run.\n\nWaits longer than 65 seconds are stored in n8n's database, so an n8n restart does not lose a run: it is still in the Runs tab.\n\n**Keep your schedule shorter than your Apify data retention.** A run's results live in an unnamed dataset. Apify keeps unnamed storages according to your plan: on the Free plan your 10 most recent runs are kept for 4 months, on paid plans the period is set in your billing settings (docs.apify.com/platform/storage/usage). Run the workflow more often than that.\n\n**Where to see every run:** the **Runs** tab (open `run_url`), Apify Console > Runs, and n8n > Executions.\n\n**About `charged_usd`:** it is what the run itself charged (pay-per-event price x events). job-feed starts its own sub-runs (one per job board / company reader); those are billed as separate runs and show up in Apify Console > Runs. The full total is in Apify Console > Billing.\n\n**Faster than waiting:** set `webhookUrl` (see the webhook note). Without it, scheduled collection still works.",
+        "width": 900,
+        "height": 440,
+        "color": 5
+      },
+      "id": "g-node-24",
+      "name": "Sticky Note - Long runs",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2640,
+        -400
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Faster results with a webhook (optional)\nApify can call this workflow the moment a run finishes. The **Apify run finished** node is a second trigger for that.\n- **n8n Cloud:** open the **Apify run finished** node, copy its **Production URL**, paste it into `webhookUrl` in Settings, and **activate** the workflow.\n- **Self-hosted:** needs a public HTTPS URL (Cloudflare Tunnel or a reverse proxy; set n8n's `WEBHOOK_URL`). localhost alone cannot receive Apify webhooks.\n- Leave `webhookUrl` empty to skip this: every run is still collected by the schedule (and the workflow then waits up to `maxWaitMinutes` for runs it started).\n\nWith `webhookUrl` set, the workflow does not wait: it starts the runs and ends. The webhook (or the next schedule) collects each result once. A webhook for a run that is not in the Runs tab is ignored.",
+        "width": 380,
+        "height": 520,
+        "color": 5
+      },
+      "id": "g-node-25",
+      "name": "Sticky Note - Webhook",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        1000
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Runs tab\nOne row per Apify run. Open `run_url` for the run in Apify Console. The workflow reads this tab to collect runs that were still running last time and never processes a run twice. `charged_usd` is what that run itself charged. The full total is in Apify Console > Billing.",
+        "width": 700,
+        "height": 200,
+        "color": 7
+      },
+      "id": "g-node-26",
+      "name": "Sticky Note - Runs tab",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        320,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Compares today's prices with the LAST row of the Prices tab for the same hotel and stay (same hotel, dates, guests, rooms, currency).\n// No new Apify call: the previous price is whatever the Sheet already holds. Flags: first price, price down, price up, no change, sold out, back on sale.\nconst s = $('Settings').first().json;\nconst runs = $('Check the hotel price runs').all().map(i => i.json).filter(r => r.outcome === 'done' && !r.stillRunning);\nconst [dest, ci, co, adults, rooms, currency] = String((runs[0] || {}).search || '').split(' | ');\nconst thr = Number(s.minPriceChangePercent) >= 0 ? Number(s.minPriceChangePercent) : 5;\nconst num = v => (v === '' || v == null || isNaN(Number(v))) ? null : Number(v);\nconst r2 = v => Math.round(v * 100) / 100;\n// A text starting with = + - @ gets a leading apostrophe so Google Sheets keeps it as text.\nconst safe = v => { v = String(v == null ? '' : v).trim(); return /^[=+\\-@]/.test(v) ? \"'\" + v : v; };\nconst last = new Map();\nfor (const { json: r } of $('Read Prices tab').all()) if (r.key) last.set(String(r.key), r);\nconst now = $now.toFormat('yyyy-LL-dd HH:mm');\nconst nights = Math.max(1, Math.round((Date.parse(co) - Date.parse(ci)) / 86400000));\nconst seen = new Set();\nconst rows = [];\nfor (const { json: h } of $input.all()) {\n  if (!h || h.id == null || !h.name || seen.has(h.id)) continue;\n  seen.add(h.id);\n  const key = [h.id, ci, co, adults, rooms, currency].join('|');\n  const p = (h.is_sold_out === true) ? null : num(h.price_total != null ? h.price_total : h.price);\n  const prev = last.get(key);\n  const pp = prev ? num(prev.price_total) : null;\n  let flag, change = '', pct = '';\n  if (!prev) flag = p == null ? 'sold out' : 'first price';\n  else if (p == null) flag = 'sold out';\n  else if (pp == null) flag = 'back on sale';\n  else {\n    change = r2(p - pp); pct = pp ? r2((p - pp) / pp * 100) : '';\n    flag = (pct !== '' && Math.abs(pct) >= thr) ? (p < pp ? 'price down' : 'price up') : 'no change';\n  }\n  rows.push({ checked_at: now, flag, hotel: safe(h.name), city: safe(h.city || h.property_city || dest), checkin: ci, checkout: co, nights,\n    price_total: p == null ? '' : r2(p), price_per_night: p == null ? '' : r2(p / nights), currency: h.currency || currency,\n    previous_price: pp == null ? '' : pp, change, change_pct: pct, review_score: h.review_score == null ? '' : h.review_score, stars: h.star_rating == null ? '' : h.star_rating,\n    free_cancellation: h.free_cancellation ? 'yes' : 'no', breakfast_included: h.breakfast_included ? 'yes' : 'no', deal: safe(h.discount_badge || ''),\n    distance_from_center: safe(h.distance_from_center || ''), url: h.url || '', hotel_id: String(h.id), key });\n}\nreturn [{ json: { rows, count: rows.length } }];"
+      },
+      "id": "g-node-27",
+      "name": "Compare with the last prices",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5920,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c0",
+              "leftValue": "={{ $json.count }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "g-node-28",
+      "name": "Any hotels to write?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        6140,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.first().json.rows.map(r => ({ json: r }));"
+      },
+      "id": "g-node-29",
+      "name": "One item per hotel",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6360,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Sheet ready').first().json.sheetId }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Prices"
+        },
+        "options": {
+          "cellFormat": "USER_ENTERED"
+        },
+        "operation": "append",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "checked_at": "={{ $json.checked_at }}",
+            "flag": "={{ $json.flag }}",
+            "hotel": "={{ $json.hotel }}",
+            "city": "={{ $json.city }}",
+            "checkin": "={{ $json.checkin }}",
+            "checkout": "={{ $json.checkout }}",
+            "nights": "={{ $json.nights }}",
+            "price_total": "={{ $json.price_total }}",
+            "price_per_night": "={{ $json.price_per_night }}",
+            "currency": "={{ $json.currency }}",
+            "previous_price": "={{ $json.previous_price }}",
+            "change": "={{ $json.change }}",
+            "change_pct": "={{ $json.change_pct }}",
+            "review_score": "={{ $json.review_score }}",
+            "stars": "={{ $json.stars }}",
+            "free_cancellation": "={{ $json.free_cancellation }}",
+            "breakfast_included": "={{ $json.breakfast_included }}",
+            "deal": "={{ $json.deal }}",
+            "distance_from_center": "={{ $json.distance_from_center }}",
+            "url": "={{ $json.url }}",
+            "hotel_id": "={{ $json.hotel_id }}",
+            "key": "={{ $json.key }}"
+          },
+          "schema": [
+            {
+              "id": "checked_at",
+              "displayName": "checked_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "flag",
+              "displayName": "flag",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "hotel",
+              "displayName": "hotel",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "city",
+              "displayName": "city",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "checkin",
+              "displayName": "checkin",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "checkout",
+              "displayName": "checkout",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "nights",
+              "displayName": "nights",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "price_total",
+              "displayName": "price_total",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "price_per_night",
+              "displayName": "price_per_night",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "currency",
+              "displayName": "currency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "previous_price",
+              "displayName": "previous_price",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "change",
+              "displayName": "change",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "change_pct",
+              "displayName": "change_pct",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "review_score",
+              "displayName": "review_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "stars",
+              "displayName": "stars",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "free_cancellation",
+              "displayName": "free_cancellation",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "breakfast_included",
+              "displayName": "breakfast_included",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "deal",
+              "displayName": "deal",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "distance_from_center",
+              "displayName": "distance_from_center",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "url",
+              "displayName": "url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "hotel_id",
+              "displayName": "hotel_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "key",
+              "displayName": "key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      },
+      "id": "g-node-30",
+      "name": "Add rows to the Prices tab",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        6580,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Sheet ready').first().json.sheetId }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Latest"
+        },
+        "options": {
+          "cellFormat": "USER_ENTERED"
+        },
+        "operation": "appendOrUpdate",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "checked_at": "={{ $json.checked_at }}",
+            "flag": "={{ $json.flag }}",
+            "hotel": "={{ $json.hotel }}",
+            "city": "={{ $json.city }}",
+            "checkin": "={{ $json.checkin }}",
+            "checkout": "={{ $json.checkout }}",
+            "nights": "={{ $json.nights }}",
+            "price_total": "={{ $json.price_total }}",
+            "price_per_night": "={{ $json.price_per_night }}",
+            "currency": "={{ $json.currency }}",
+            "previous_price": "={{ $json.previous_price }}",
+            "change": "={{ $json.change }}",
+            "change_pct": "={{ $json.change_pct }}",
+            "review_score": "={{ $json.review_score }}",
+            "stars": "={{ $json.stars }}",
+            "free_cancellation": "={{ $json.free_cancellation }}",
+            "breakfast_included": "={{ $json.breakfast_included }}",
+            "deal": "={{ $json.deal }}",
+            "distance_from_center": "={{ $json.distance_from_center }}",
+            "url": "={{ $json.url }}",
+            "hotel_id": "={{ $json.hotel_id }}",
+            "key": "={{ $json.key }}"
+          },
+          "matchingColumns": [
+            "key"
+          ],
+          "schema": [
+            {
+              "id": "checked_at",
+              "displayName": "checked_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "flag",
+              "displayName": "flag",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "hotel",
+              "displayName": "hotel",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "city",
+              "displayName": "city",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "checkin",
+              "displayName": "checkin",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "checkout",
+              "displayName": "checkout",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "nights",
+              "displayName": "nights",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "price_total",
+              "displayName": "price_total",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "price_per_night",
+              "displayName": "price_per_night",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "currency",
+              "displayName": "currency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "previous_price",
+              "displayName": "previous_price",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "change",
+              "displayName": "change",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "change_pct",
+              "displayName": "change_pct",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "review_score",
+              "displayName": "review_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "stars",
+              "displayName": "stars",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "free_cancellation",
+              "displayName": "free_cancellation",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "breakfast_included",
+              "displayName": "breakfast_included",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "deal",
+              "displayName": "deal",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "distance_from_center",
+              "displayName": "distance_from_center",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "url",
+              "displayName": "url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "hotel_id",
+              "displayName": "hotel_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "key",
+              "displayName": "key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      },
+      "id": "g-node-31",
+      "name": "Update the Latest tab",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        6800,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Collapse to ONE item: the next step (mark the run collected) runs exactly once.\nreturn [{ json: { done: true } }];"
+      },
+      "id": "g-node-32",
+      "name": "Prices written (once)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7020,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Hotel price monitor: Booking.com prices for your city and dates in Google Sheets, with price-change flags\nPick a city and a stay (check-in and check-out). Every morning this workflow gets the current Booking.com prices for the top hotels of that search, adds them to a Google Sheet history and flags what changed since the last check: price down, price up, sold out, back on sale. It never books anything. Useful for travellers waiting for a lower price, event and travel planners, hotel revenue managers watching competitors, and anyone who wants a price history for a trip.\n\n**How it works**\n1. Finds (or on the first run creates) your Sheet with 3 tabs: **Prices** (history), **Latest** (one row per hotel and stay) and **Runs**.\n2. Reads your search from **Settings**: `destination`, `checkin`, `checkout`, guests, rooms, currency, `maxHotels`. The check-in and check-out dates are fixed on purpose: prices are only comparable for the same stay.\n3. The Apify actor `santamaria-automations/booking-com-scraper` runs the search. It starts **without waiting** and is logged in the **Runs** tab; a run that takes long is collected by the next execution (see the sticky \"Long runs\"). Optional: a webhook delivers results the moment a run finishes.\n4. The workflow compares each hotel's total stay price with its **last row in the Prices tab** (same hotel, dates, guests, rooms, currency). The comparison uses only what is already in your Sheet: the actor is never run again for it.\n5. Every hotel gets a new row in **Prices** with `flag`, `previous_price`, `change` and `change_pct`; **Latest** keeps the newest row per hotel and stay. A change smaller than `minPriceChangePercent` (default 5) is flagged \"no change\".\n\n**Setup (about 10 minutes)**\n1. Install the verified community node `@apify/n8n-nodes-apify` (install guide: https://docs.apify.com/platform/integrations/n8n). You need an Apify account (free to start: https://console.apify.com/sign-up?fpr=0khfbz). Connect it in the Apify nodes (**Get hotel price run status**, **Get hotel price results**) and in **Start hotel price run (no waiting)** (credential type Apify API).\n2. Connect Google Sheets (the Sheet nodes and the HTTP nodes that set it up).\n3. Open **Settings** and set `destination`, `checkin`, `checkout` (YYYY-MM-DD, in the future), adults, rooms, currency.\n4. Test with **Test workflow**, check the Sheet, then activate. When the stay is over, set new dates: the history of the old stay stays in the Sheet.\n5. Times use your n8n timezone (Settings > Timezone).\n\n**Cost** (at Apify Store prices, checked 2026-11-23, measured on a live run): $0.001 per run plus $0.00297 per hotel. Default: 20 hotels per run = about $0.06 per run, once a day = about $0.42 per week (7 runs). Run weekly instead (change the schedule trigger) = about $0.06 per week. `maxHotels` and the schedule are the two knobs; `maxCostPerRunUsd` (0.25) is a budget setting for each run, not a guaranteed hard stop. n8n and Google Sheets as per your plans.\n\n**Limits**\n- One destination and one stay per workflow. For more, duplicate the workflow with another `sheetName`.\n- The price is the total for the whole stay (all nights, all rooms) as shown by Booking.com for that search; it is not a guaranteed bookable price.\n- Only the top `maxHotels` of the search order (`sortBy`, default popularity) are read. A hotel that drops out of that list gets no row that day, so no flag.\n- Change `destination` or the dates only after the last run has finished; a run that is still open is collected with the settings of the search that started it.\n- Respect Booking.com's terms for your use of the data.",
+        "width": 520,
+        "height": 1500,
+        "color": 4
+      },
+      "id": "g-node-33",
+      "name": "Sticky Note - Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -640,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Settings explained\nChange the first six; the rest have defaults.\n- `destination`: city name as on Booking.com (Lisbon, Berlin, Zurich ...).\n- `checkin`, `checkout`: YYYY-MM-DD, in the future. Required. The workflow stops with a message when they are missing or in the past (no Apify cost).\n- `adults` (2), `rooms` (1), `currency` (EUR): the guests and the currency of the prices.\n- `sortBy` (POPULARITY): POPULARITY, PRICE, REVIEW_SCORE or DISTANCE. With PRICE the list changes when prices change, so popularity is steadier for monitoring.\n- `maxHotels` (20): hotels read per run. Cost = $0.001 + $0.00297 per hotel.\n- `minPriceChangePercent` (5): smaller changes are flagged \"no change\".\n- `sheetName`: the Google Sheet in your Drive (created on the first run).\n- `maxWaitMinutes` (15): how long one execution waits for the run. `apifyRunTimeoutMinutes` (30). `maxCostPerRunUsd` (0.25): budget for each run.\n- `webhookUrl` (empty = off): see the webhook sticky.",
+        "width": 480,
+        "height": 560,
+        "color": 7
+      },
+      "id": "g-node-34",
+      "name": "Sticky Note - Settings explained",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        140,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Price flags\nEach hotel is compared with its **last row** in the Prices tab (same stay). `first price`: nothing to compare yet. `price down` / `price up`: the total moved by at least `minPriceChangePercent`. `no change`: smaller move. `sold out`: no price today. `back on sale`: priced again after a sold-out check.\n`change` = new total minus previous total, `change_pct` in percent. In Sheets, filter the `flag` column on the **Latest** tab for today's changes, or chart `price_per_night` from **Prices**.",
+        "width": 720,
+        "height": 300,
+        "color": 7
+      },
+      "id": "g-node-35",
+      "name": "Sticky Note - Compare",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        5920,
+        -340
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### If something goes wrong\n- **\"Set checkin and checkout ...\"**: fill the dates in Settings. No Apify cost has been spent.\n- **A run fails** (timeout, blocked): the Runs tab shows the status and a note; the next execution tries again.\n- **No rows**: the search returned no hotels (check `destination` spelling) or the run is still RUNNING; it is collected next time.",
+        "width": 480,
+        "height": 260,
+        "color": 3
+      },
+      "id": "g-node-36",
+      "name": "Sticky Note - Errors",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        140,
+        880
+      ]
+    }
+  ],
+  "connections": {
+    "Find the Sheet by name": {
+      "main": [
+        [
+          {
+            "node": "Sheet exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Use the existing Sheet": {
+      "main": [
+        [
+          {
+            "node": "Sheet ready",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create the Sheet (first run)": {
+      "main": [
+        [
+          {
+            "node": "Write the header rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write the header rows": {
+      "main": [
+        [
+          {
+            "node": "Read the tab IDs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read the tab IDs": {
+      "main": [
+        [
+          {
+            "node": "Add the dropdowns",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add the dropdowns": {
+      "main": [
+        [
+          {
+            "node": "Use the new Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Use the new Sheet": {
+      "main": [
+        [
+          {
+            "node": "Sheet ready",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sheet exists?": {
+      "main": [
+        [
+          {
+            "node": "Use the existing Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create the Sheet (first run)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every day at 7 AM": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run manually": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Find the Sheet by name",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sheet ready": {
+      "main": [
+        [
+          {
+            "node": "Read Prices tab",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Prices tab": {
+      "main": [
+        [
+          {
+            "node": "Read Runs tab",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Plan the hotel price search": {
+      "main": [
+        [
+          {
+            "node": "Anything to start? (hotel price)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anything to start? (hotel price)": {
+      "main": [
+        [
+          {
+            "node": "One item per hotel price search",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Runs to watch (hotel price)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One item per hotel price search": {
+      "main": [
+        [
+          {
+            "node": "Start hotel price run (no waiting)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start hotel price run (no waiting)": {
+      "main": [
+        [
+          {
+            "node": "Log the new hotel price runs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log the new hotel price runs": {
+      "main": [
+        [
+          {
+            "node": "Add to Runs tab (hotel price)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add to Runs tab (hotel price)": {
+      "main": [
+        [
+          {
+            "node": "Runs to watch (hotel price)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Runs to watch (hotel price)": {
+      "main": [
+        [
+          {
+            "node": "Get hotel price run status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get hotel price run status": {
+      "main": [
+        [
+          {
+            "node": "Check the hotel price runs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check the hotel price runs": {
+      "main": [
+        [
+          {
+            "node": "Still running? (hotel price)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Still running? (hotel price)": {
+      "main": [
+        [
+          {
+            "node": "Wait before checking again (hotel price)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Run succeeded? (hotel price)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait before checking again (hotel price)": {
+      "main": [
+        [
+          {
+            "node": "Get hotel price run status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run succeeded? (hotel price)": {
+      "main": [
+        [
+          {
+            "node": "Get hotel price results",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Run ended with a problem? (hotel price)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run ended with a problem? (hotel price)": {
+      "main": [
+        [
+          {
+            "node": "Describe the hotel price run problem",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Describe the hotel price run problem": {
+      "main": [
+        [
+          {
+            "node": "Update Runs row (hotel price)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark the hotel price runs collected": {
+      "main": [
+        [
+          {
+            "node": "Update Runs row (hotel price)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Runs tab": {
+      "main": [
+        [
+          {
+            "node": "Plan the hotel price search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apify run finished": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get hotel price results": {
+      "main": [
+        [
+          {
+            "node": "Compare with the last prices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compare with the last prices": {
+      "main": [
+        [
+          {
+            "node": "Any hotels to write?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any hotels to write?": {
+      "main": [
+        [
+          {
+            "node": "One item per hotel",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prices written (once)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One item per hotel": {
+      "main": [
+        [
+          {
+            "node": "Add rows to the Prices tab",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add rows to the Prices tab": {
+      "main": [
+        [
+          {
+            "node": "Update the Latest tab",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update the Latest tab": {
+      "main": [
+        [
+          {
+            "node": "Prices written (once)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prices written (once)": {
+      "main": [
+        [
+          {
+            "node": "Mark the hotel price runs collected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

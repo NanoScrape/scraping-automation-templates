@@ -1,0 +1,1974 @@
+{
+  "name": "Weekly Job Market Report: Count Job Ads per Role and City in Google Sheets with Apify",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "id": "h-node-01",
+      "name": "Every Monday at 8 AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -60,
+        0
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "h-node-02",
+      "name": "Run manually",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "s0",
+              "name": "maxSearchesPerRun",
+              "value": 4,
+              "type": "number"
+            },
+            {
+              "id": "s1",
+              "name": "maxAdsPerSearch",
+              "value": 30,
+              "type": "number"
+            },
+            {
+              "id": "s2",
+              "name": "postedWithinDays",
+              "value": 7,
+              "type": "number"
+            },
+            {
+              "id": "s3",
+              "name": "radiusKm",
+              "value": 25,
+              "type": "number"
+            },
+            {
+              "id": "s4",
+              "name": "minRelevanceScore",
+              "value": 50,
+              "type": "number"
+            },
+            {
+              "id": "s5",
+              "name": "includeGlobalBoards",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "s6",
+              "name": "reRunSameWeek",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "s7",
+              "name": "sheetName",
+              "value": "Job market report - NanoScrape",
+              "type": "string"
+            },
+            {
+              "id": "s8",
+              "name": "maxCostPerRunUsd",
+              "value": 0.25,
+              "type": "number"
+            },
+            {
+              "id": "s9",
+              "name": "maxWaitMinutes",
+              "value": 15,
+              "type": "number"
+            },
+            {
+              "id": "s10",
+              "name": "apifyRunTimeoutMinutes",
+              "value": 30,
+              "type": "number"
+            },
+            {
+              "id": "s11",
+              "name": "webhookUrl",
+              "value": "",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "h-node-03",
+      "name": "Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        140,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://www.googleapis.com/drive/v3/files",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "=name = '{{ $('Settings').first().json.sheetName.replace(/'/g, \"\\\\'\") }}' and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false"
+            },
+            {
+              "name": "fields",
+              "value": "files(id,name,webViewLink)"
+            },
+            {
+              "name": "orderBy",
+              "value": "createdTime"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "h-setup-1",
+      "name": "Find the Sheet by name",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        360,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e1",
+              "leftValue": "={{ ($json.files || []).length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "h-setup-2",
+      "name": "Sheet exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        580,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "u1",
+              "name": "sheetId",
+              "value": "={{ $json.files[0].id }}",
+              "type": "string"
+            },
+            {
+              "id": "u2",
+              "name": "sheetUrl",
+              "value": "={{ $json.files[0].webViewLink }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "h-setup-3",
+      "name": "Use the existing Sheet",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        800,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "spreadsheet",
+        "title": "={{ $('Settings').first().json.sheetName }}",
+        "sheetsUi": {
+          "sheetValues": [
+            {
+              "title": "Searches"
+            },
+            {
+              "title": "History"
+            },
+            {
+              "title": "Summary"
+            },
+            {
+              "title": "Runs"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "h-setup-4",
+      "name": "Create the Sheet (first run)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        800,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $json.spreadsheetId }}/values:batchUpdate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ valueInputOption: 'RAW', data: [{range:\"'Searches'!A1\",values:[[\"role\", \"city\", \"country\", \"active\"], [\"Software Engineer\", \"Berlin\", \"DE\", \"yes\"], [\"Data Analyst\", \"Berlin\", \"DE\", \"yes\"], [\"Software Engineer\", \"Zurich\", \"CH\", \"yes\"], [\"Data Analyst\", \"Zurich\", \"CH\", \"yes\"]]},{range:\"'History'!A1\",values:[[\"week\", \"checked_at\", \"role\", \"city\", \"country\", \"ads\", \"capped\", \"cap\", \"posted_within_days\", \"run_url\", \"key\"]]},{range:\"'Summary'!A1\",values:[[\"role\", \"city\", \"country\", \"week\", \"ads\", \"capped\", \"previous_week\", \"previous_ads\", \"change\", \"change_pct\", \"trend\", \"key\"]]},{range:\"'Runs'!A1\",values:[[\"started_at\", \"search\", \"mode\", \"status\", \"jobs\", \"charged_usd\", \"run_url\", \"collected_at\", \"note\"]]}] }) }}",
+        "options": {}
+      },
+      "id": "h-setup-5",
+      "name": "Write the header rows",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1020,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $('Create the Sheet (first run)').first().json.spreadsheetId }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "fields",
+              "value": "sheets.properties(sheetId,title)"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "h-setup-8",
+      "name": "Read the tab IDs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1240,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $('Create the Sheet (first run)').first().json.spreadsheetId }}:batchUpdate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ requests: [{ setDataValidation: { range: { sheetId: $json.sheets.find(s => s.properties.title === \"Searches\").properties.sheetId, startRowIndex: 1, startColumnIndex: 3, endColumnIndex: 4 }, rule: { condition: { type: 'ONE_OF_LIST', values: [{\"userEnteredValue\": \"yes\"}, {\"userEnteredValue\": \"no\"}] }, strict: false, showCustomUi: true } } }, { updateSheetProperties: { properties: { sheetId: $json.sheets.find(s => s.properties.title === \"Searches\").properties.sheetId, gridProperties: { frozenRowCount: 1 } }, fields: 'gridProperties.frozenRowCount' } }, { updateSheetProperties: { properties: { sheetId: $json.sheets.find(s => s.properties.title === \"History\").properties.sheetId, gridProperties: { frozenRowCount: 1 } }, fields: 'gridProperties.frozenRowCount' } }, { updateSheetProperties: { properties: { sheetId: $json.sheets.find(s => s.properties.title === \"Summary\").properties.sheetId, gridProperties: { frozenRowCount: 1 } }, fields: 'gridProperties.frozenRowCount' } }, { updateSheetProperties: { properties: { sheetId: $json.sheets.find(s => s.properties.title === \"Runs\").properties.sheetId, gridProperties: { frozenRowCount: 1 } }, fields: 'gridProperties.frozenRowCount' } }, { repeatCell: { range: { sheetId: $json.sheets.find(s => s.properties.title === \"History\").properties.sheetId, startRowIndex: 1 }, cell: { userEnteredFormat: { wrapStrategy: 'CLIP' } }, fields: 'userEnteredFormat.wrapStrategy' } }, { updateDimensionProperties: { range: { sheetId: $json.sheets.find(s => s.properties.title === \"History\").properties.sheetId, dimension: 'COLUMNS', startIndex: 9, endIndex: 10 }, properties: { pixelSize: 200 }, fields: 'pixelSize' } }, { updateDimensionProperties: { range: { sheetId: $json.sheets.find(s => s.properties.title === \"History\").properties.sheetId, dimension: 'COLUMNS', startIndex: 10, endIndex: 11 }, properties: { pixelSize: 200 }, fields: 'pixelSize' } }, { repeatCell: { range: { sheetId: $json.sheets.find(s => s.properties.title === \"Summary\").properties.sheetId, startRowIndex: 1 }, cell: { userEnteredFormat: { wrapStrategy: 'CLIP' } }, fields: 'userEnteredFormat.wrapStrategy' } }, { updateDimensionProperties: { range: { sheetId: $json.sheets.find(s => s.properties.title === \"Summary\").properties.sheetId, dimension: 'COLUMNS', startIndex: 11, endIndex: 12 }, properties: { pixelSize: 200 }, fields: 'pixelSize' } }] }) }}",
+        "options": {}
+      },
+      "id": "h-setup-9",
+      "name": "Add the dropdowns",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1460,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "w1",
+              "name": "sheetId",
+              "value": "={{ $('Create the Sheet (first run)').first().json.spreadsheetId }}",
+              "type": "string"
+            },
+            {
+              "id": "w2",
+              "name": "sheetUrl",
+              "value": "={{ $('Create the Sheet (first run)').first().json.spreadsheetUrl }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "h-setup-6",
+      "name": "Use the new Sheet",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1680,
+        200
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "h-setup-7",
+      "name": "Sheet ready",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1900,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 0. Your Sheet (sets itself up)\nLooks for a Google Sheet called `sheetName` in your Drive. On the first run it isn't there, so the workflow creates it with **4 tabs** and header rows:\n- **Searches**: your list (input, with 4 example rows): role, city, country (2 letters), `active` = no skips a row.\n- **History**: one row per role x city x week (the data; a rerun of the same week overwrites that week's row).\n- **Summary**: one row per role x city with the latest week, the week before, the change and a trend; ready for a chart.\n- **Runs**: a log of every Apify run.\nLater runs find the Sheet by name. Rename it in Drive? Change `sheetName` too.",
+        "height": 560,
+        "width": 1760,
+        "color": 5
+      },
+      "id": "h-setup-note",
+      "name": "Sticky Note - Sheet setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        320,
+        -180
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Sheet ready').first().json.sheetId }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Searches"
+        },
+        "options": {}
+      },
+      "id": "h-node-04",
+      "name": "Read Searches tab",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2000,
+        80
+      ],
+      "alwaysOutputData": true,
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Sheet ready').first().json.sheetId }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "History"
+        },
+        "options": {}
+      },
+      "id": "h-node-05",
+      "name": "Read History tab",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2220,
+        80
+      ],
+      "alwaysOutputData": true,
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Sheet ready').first().json.sheetId }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Runs"
+        },
+        "options": {}
+      },
+      "id": "h-node-06",
+      "name": "Read Runs tab",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2440,
+        80
+      ],
+      "alwaysOutputData": true,
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// One job-feed run per role x city from the Searches tab, for the current week (weeks start on Monday).\n// Skips searches already stored for this week (unless reRunSameWeek) and searches whose run is still RUNNING. At most maxSearchesPerRun runs.\n// A webhook execution only collects. Stops with a message when no search is usable (no Apify cost).\nconst s = $('Settings').first().json;\nconst openRuns = () => $('Read Runs tab').all().map(i => i.json)\n  .filter(r => /^(RUNNING|READY)$/i.test(String(r.status || '').trim()) && String(r.run_url || '').trim())\n  .map(r => ({ id: String(r.run_url).trim().replace(/\\/+$/, '').split('/').pop(), run_url: String(r.run_url).trim(), search: String(r.search || ''), mode: String(r.mode || ''), status: String(r.status).trim().toUpperCase() }));\n// Set when this execution was started by the \"Apify run finished\" webhook: only that run is collected, and nothing new is started.\nlet hookRun = '';\ntry { hookRun = String($('Apify run finished').first().json.body.runId || ''); } catch (e) {}\nconst clean = v => String(v == null ? '' : v).replace(/\\s+/g, ' ').trim();\nconst week = $now.startOf('week').toFormat('yyyy-LL-dd');\nconst rows = $('Read Searches tab').all().map(i => i.json)\n  .filter(r => clean(r.role) && clean(r.city) && !/^(no|false|0|off|nein)$/i.test(clean(r.active)));\nif (!hookRun) {\n  if (!rows.length) throw new Error(\"No active search. Open the Sheet, tab 'Searches', and add rows: role, city, country (2 letters, for example DE), active = yes.\");\n  const bad = rows.find(r => !/^[A-Za-z]{2}$/.test(clean(r.country)));\n  if (bad) throw new Error(\"The country of '\" + clean(bad.role) + ' in ' + clean(bad.city) + \"' must be a 2-letter code (DE, CH, AT, US, GB ...).\");\n}\nconst done = new Set($('Read History tab').all().map(i => String(i.json.key || '').toLowerCase()));\nconst open = new Set(openRuns().filter(r => r.mode === 'job market').map(r => r.search));\nconst cap = Math.max(1, Math.round(Number(s.maxAdsPerSearch) || 30));\nconst days = Number(s.postedWithinDays) > 0 ? Number(s.postedWithinDays) : 7;\nconst starts = [];\nconst seen = new Set();\nfor (const r of rows) {\n  if (hookRun || starts.length >= Math.max(1, Math.round(Number(s.maxSearchesPerRun) || 4))) break;\n  const role = clean(r.role), city = clean(r.city), cc = clean(r.country).toUpperCase();\n  const key = [week, role, city, cc].join('|').toLowerCase();\n  const search = [role, city, cc, week].join(' | ');\n  if (seen.has(key) || (done.has(key) && s.reRunSameWeek !== true) || open.has(search)) continue;\n  seen.add(key);\n  starts.push({ search, mode: 'job market', body: { keywords: [role], countries: [cc], location: city, radiusKm: Math.round(Number(s.radiusKm) || 25),\n    postedWithinDays: days, sortBy: 'newest', maxResultsTotal: cap, minRelevanceScore: Math.round(Number(s.minRelevanceScore) || 0),\n    includeGlobalBoards: s.includeGlobalBoards !== false, includeJobDetails: false } });\n}\nreturn [{ json: { starts } }];"
+      },
+      "id": "h-node-07",
+      "name": "Plan the job market searches",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2860,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "a1",
+              "leftValue": "={{ $json.starts.length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "h-node-08",
+      "name": "Anything to start? (job market)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3080,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// One Apify run per search. The start query is built here (timeout, memory, cost cap, optional ad-hoc webhook).\nconst s = $('Settings').first().json;\nconst hook = String(s.webhookUrl || '').trim();\nconst b64 = t => typeof Buffer !== 'undefined' ? Buffer.from(t, 'utf8').toString('base64') : btoa(unescape(encodeURIComponent(t)));\nconst query = { waitForFinish: 0, timeout: Math.round((Number(s.apifyRunTimeoutMinutes) || 240) * 60), memory: 1024, maxTotalChargeUsd: Number(s.maxCostPerRunUsd) || 0.25 };\nif (hook) query.webhooks = b64(JSON.stringify([{ eventTypes: ['ACTOR.RUN.SUCCEEDED', 'ACTOR.RUN.FAILED', 'ACTOR.RUN.ABORTED', 'ACTOR.RUN.TIMED_OUT'],\n  requestUrl: hook, payloadTemplate: '{\"runId\": {{resource.id}}, \"status\": {{resource.status}}}' }]));\nreturn $input.first().json.starts.map(x => ({ json: { ...x, query } }));"
+      },
+      "id": "h-node-09",
+      "name": "One item per job market search",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3300,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/santamaria-automations~job-feed/runs",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "apifyApi",
+        "sendQuery": true,
+        "specifyQuery": "json",
+        "jsonQuery": "={{ JSON.stringify($json.query) }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "id": "h-node-10",
+      "name": "Start job market run (no waiting)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3520,
+        80
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// One Runs-tab row per started run. A run that could not be started is logged too (status FAILED, with the reason).\nconst src = $('One item per job market search').all();\nconst now = $now.toFormat('yyyy-LL-dd HH:mm');\nreturn $input.all().map((it, i) => {\n  const r = (it.json && it.json.data) || it.json || {}, s = (src[i] || { json: {} }).json;\n  const e0 = (it.json && it.json.error) || r.error;\n  const err = e0 ? String((e0 && (e0.message || e0.description)) || e0) : (r.id ? '' : String(r.message || 'no run ID returned'));\n  return { json: { started_at: now, search: s.search || '', mode: s.mode || '', status: r.id ? 'RUNNING' : 'FAILED', jobs: '', charged_usd: '',\n    run_url: r.id ? 'https://console.apify.com/view/runs/' + r.id : '', collected_at: r.id ? '' : now, note: r.id ? '' : 'could not start: ' + err, run_id: r.id || '' } };\n});"
+      },
+      "id": "h-node-11",
+      "name": "Log the new job market runs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3740,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Sheet ready').first().json.sheetId }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Runs"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "started_at": "={{ $json.started_at }}",
+            "search": "={{ $json.search }}",
+            "mode": "={{ $json.mode }}",
+            "status": "={{ $json.status }}",
+            "jobs": "={{ $json.jobs }}",
+            "charged_usd": "={{ $json.charged_usd }}",
+            "run_url": "={{ $json.run_url }}",
+            "collected_at": "={{ $json.collected_at }}",
+            "note": "={{ $json.note }}"
+          },
+          "schema": [
+            {
+              "id": "started_at",
+              "displayName": "started_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "search",
+              "displayName": "search",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "mode",
+              "displayName": "mode",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "jobs",
+              "displayName": "jobs",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "charged_usd",
+              "displayName": "charged_usd",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "run_url",
+              "displayName": "run_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "collected_at",
+              "displayName": "collected_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "note",
+              "displayName": "note",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {
+          "cellFormat": "USER_ENTERED"
+        }
+      },
+      "id": "h-node-12",
+      "name": "Add to Runs tab (job market)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        3960,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Everything to poll: the runs started just now plus the runs of earlier executions that are still RUNNING (for this part of the workflow).\nconst openRuns = () => $('Read Runs tab').all().map(i => i.json)\n  .filter(r => /^(RUNNING|READY)$/i.test(String(r.status || '').trim()) && String(r.run_url || '').trim())\n  .map(r => ({ id: String(r.run_url).trim().replace(/\\/+$/, '').split('/').pop(), run_url: String(r.run_url).trim(), search: String(r.search || ''), mode: String(r.mode || ''), status: String(r.status).trim().toUpperCase() }));\nconst mine = ['job market'];\nconst hook = String($('Settings').first().json.webhookUrl || '').trim();\nlet hookRun = '';\ntry { hookRun = String($('Apify run finished').first().json.body.runId || ''); } catch (e) {}\nlet fresh = [];\n// With a webhook URL set, new runs are not watched here: Apify calls the webhook when they finish.\nif (!hook) try { fresh = $('Log the new job market runs').all().map(i => i.json).filter(r => r.run_id).map(r => ({ id: r.run_id, run_url: r.run_url, search: r.search, mode: r.mode, status: 'RUNNING' })); } catch (e) {}\nconst seen = new Set();\nconst out = [];\nfor (const r of [...fresh, ...openRuns().filter(r => mine.includes(r.mode) && (!hookRun || r.id === hookRun))]) { if (!r.id || seen.has(r.id)) continue; seen.add(r.id); out.push({ json: r }); }\nreturn out;"
+      },
+      "id": "h-node-13",
+      "name": "Runs to watch (job market)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4180,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "Actor runs",
+        "operation": "Get run",
+        "runId": "={{ $json.id }}"
+      },
+      "id": "h-node-14",
+      "name": "Get job market run status",
+      "type": "@apify/n8n-nodes-apify.apify",
+      "typeVersion": 2,
+      "position": [
+        4400,
+        80
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Sort the runs by outcome. Keeps looping while a run is still open and Settings.maxWaitMinutes is not used up.\nconst s = $('Settings').first().json;\nconst maxPolls = String(s.webhookUrl || '').trim() ? 0 : Math.floor((Number(s.maxWaitMinutes) >= 0 ? Number(s.maxWaitMinutes) : 30) * 60 / 70);\nconst polls = $runIndex + 1;\nconst base = $('Runs to watch (job market)').all().map(i => i.json);\nconst got = $input.all().map(i => i.json || {});\n// What the run charges you: pay-per-event actors = sum(chargedEventCounts x event price) (+ platform usage only when the run bills usage to the user); other runs = usageTotalUsd.\nconst chargedOf = r => {\n  const ev = (((r.pricingInfo || {}).pricingPerEvent || {}).actorChargeEvents) || null;\n  if (!ev || !/PAY_PER_EVENT/i.test(String((r.pricingInfo || {}).pricingModel || ''))) return r.usageTotalUsd;\n  const cnt = r.chargedEventCounts || {};\n  let t = 0;\n  for (const k of Object.keys(cnt)) t += (Number(cnt[k]) || 0) * (Number((ev[k] || {}).eventPriceUsd) || 0);\n  if (String(r.platformUsageBillingModel || '').toUpperCase() === 'USER') t += Number(r.usageTotalUsd) || 0;\n  return t;\n};\nconst isOpen = st => ['READY', 'RUNNING', 'TIMING-OUT', 'ABORTING'].includes(st);\nconst rows = base.map((b, i) => { const r = got[i] || {}; return { ...b, status: String(r.status || (r.error ? 'UNKNOWN' : b.status || 'UNKNOWN')).toUpperCase(), defaultDatasetId: r.defaultDatasetId || '',\n  charged: chargedOf(r), jobs: (r.chargedEventCounts || {})['orchestrator-unique-job'], note: r.error ? 'could not read the run status: ' + String((r.error && r.error.message) || r.error) : '' }; });\nconst stillRunning = rows.some(r => isOpen(r.status)) && polls <= maxPolls;\nreturn rows.map(r => ({ json: { ...r, stillRunning, polls, outcome: r.status === 'SUCCEEDED' ? 'done' : isOpen(r.status) ? 'running' : 'problem' } }));"
+      },
+      "id": "h-node-15",
+      "name": "Check the job market runs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4620,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "r1",
+              "leftValue": "={{ $json.stillRunning }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "h-node-16",
+      "name": "Still running? (job market)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        4840,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": 70,
+        "unit": "seconds"
+      },
+      "id": "h-node-17",
+      "name": "Wait before checking again (job market)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        4840,
+        280
+      ],
+      "webhookId": "h-wait-17"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "r2",
+              "leftValue": "={{ $json.outcome }}",
+              "rightValue": "done",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "h-node-18",
+      "name": "Run succeeded? (job market)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        5060,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.apify.com/v2/datasets/{{ $json.defaultDatasetId }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "apifyApi",
+        "options": {}
+      },
+      "id": "h-node-19",
+      "name": "Count the job ads of each run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        5280,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Runs of this execution whose dataset was just processed: mark them collected, so they are never processed twice.\nconst fmt = u => (u == null || u === '' || isNaN(Number(u))) ? '' : String(Math.round(Number(u) * 10000) / 10000);\nconst now = $now.toFormat('yyyy-LL-dd HH:mm');\nreturn $('Check the job market runs').all().map(i => i.json).filter(r => r.outcome === 'done' && !r.stillRunning)\n  .map(r => ({ json: { run_url: r.run_url, status: 'SUCCEEDED', jobs: r.jobs == null ? '' : r.jobs, charged_usd: fmt(r.charged), collected_at: now, note: '' } }));"
+      },
+      "id": "h-node-20",
+      "name": "Mark the job market runs collected",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5500,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "r3",
+              "leftValue": "={{ $json.outcome }}",
+              "rightValue": "problem",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "h-node-21",
+      "name": "Run ended with a problem? (job market)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        5280,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const fmt = u => (u == null || u === '' || isNaN(Number(u))) ? '' : String(Math.round(Number(u) * 10000) / 10000);\nconst r = $json;\nconst now = $now.toFormat('yyyy-LL-dd HH:mm');\nconst note = r.status === 'UNKNOWN' ? (r.note || 'could not read the run status (deleted or expired?)') : 'The run ended with status ' + r.status + '. Open run_url to see why. Nothing was collected from it.';\nreturn { json: { run_url: r.run_url, status: r.status, jobs: '', charged_usd: fmt(r.charged), collected_at: now, note } };",
+        "mode": "runOnceForEachItem"
+      },
+      "id": "h-node-22",
+      "name": "Describe the job market run problem",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5500,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Sheet ready').first().json.sheetId }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Runs"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "run_url": "={{ $json.run_url }}",
+            "status": "={{ $json.status }}",
+            "jobs": "={{ $json.jobs }}",
+            "charged_usd": "={{ $json.charged_usd }}",
+            "collected_at": "={{ $json.collected_at }}",
+            "note": "={{ $json.note }}"
+          },
+          "matchingColumns": [
+            "run_url"
+          ],
+          "schema": [
+            {
+              "id": "run_url",
+              "displayName": "run_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "jobs",
+              "displayName": "jobs",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "charged_usd",
+              "displayName": "charged_usd",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "collected_at",
+              "displayName": "collected_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "note",
+              "displayName": "note",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {
+          "cellFormat": "USER_ENTERED"
+        }
+      },
+      "id": "h-node-23",
+      "name": "Update Runs row (job market)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        5720,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "nanoscrape-job-market",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "h-node-24",
+      "name": "Apify run finished",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -60,
+        360
+      ],
+      "webhookId": "h-hook"
+    },
+    {
+      "parameters": {
+        "content": "### Long runs: nothing waits for hours\nApify runs are **started without waiting** and logged in the **Runs** tab of your Sheet (started_at, search, mode, status, jobs, charged_usd, run_url, collected_at, note).\n\n1. **Collect first:** runs still marked RUNNING from an earlier execution are checked. A finished run is read and processed, then marked SUCCEEDED with `collected_at`: a run is never processed twice. FAILED, ABORTED or TIMED-OUT runs get that status and a note.\n2. **Start:** new runs for this execution all start at once. A search whose previous run is still RUNNING is not started again (no double cost).\n3. **Wait:** every 70 seconds the runs are checked, for at most `maxWaitMinutes` (default 30). A run that is not finished by then stays RUNNING and is collected by the next scheduled execution or manual run.\n\nWaits longer than 65 seconds are stored in n8n's database, so an n8n restart does not lose a run: it is still in the Runs tab.\n\n**Keep your schedule shorter than your Apify data retention.** A run's results live in an unnamed dataset. Apify keeps unnamed storages according to your plan: on the Free plan your 10 most recent runs are kept for 4 months, on paid plans the period is set in your billing settings (docs.apify.com/platform/storage/usage). Run the workflow more often than that.\n\n**Where to see every run:** the **Runs** tab (open `run_url`), Apify Console > Runs, and n8n > Executions.\n\n**About `charged_usd`:** it is what the run itself charged (pay-per-event price x events). job-feed starts its own sub-runs (one per job board / company reader); those are billed as separate runs and show up in Apify Console > Runs. The full total is in Apify Console > Billing.\n\n**Faster than waiting:** set `webhookUrl` (see the webhook note). Without it, scheduled collection still works.",
+        "width": 900,
+        "height": 440,
+        "color": 5
+      },
+      "id": "h-node-25",
+      "name": "Sticky Note - Long runs",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2860,
+        -400
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Faster results with a webhook (optional)\nApify can call this workflow the moment a run finishes. The **Apify run finished** node is a second trigger for that.\n- **n8n Cloud:** open the **Apify run finished** node, copy its **Production URL**, paste it into `webhookUrl` in Settings, and **activate** the workflow.\n- **Self-hosted:** needs a public HTTPS URL (Cloudflare Tunnel or a reverse proxy; set n8n's `WEBHOOK_URL`). localhost alone cannot receive Apify webhooks.\n- Leave `webhookUrl` empty to skip this: every run is still collected by the schedule (and the workflow then waits up to `maxWaitMinutes` for runs it started).\n\nWith `webhookUrl` set, the workflow does not wait: it starts the runs and ends. The webhook (or the next schedule) collects each result once. A webhook for a run that is not in the Runs tab is ignored.",
+        "width": 380,
+        "height": 520,
+        "color": 5
+      },
+      "id": "h-node-26",
+      "name": "Sticky Note - Webhook",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        1000
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Runs tab\nOne row per Apify run. Open `run_url` for the run in Apify Console. The workflow reads this tab to collect runs that were still running last time and never processes a run twice. `charged_usd` is what that run itself charged. The full total is in Apify Console > Billing.",
+        "width": 700,
+        "height": 200,
+        "color": 7
+      },
+      "id": "h-node-27",
+      "name": "Sticky Note - Runs tab",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        320,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Turns each collected run into one History row and one Summary row (role x city), compared with the last stored week.\n// ads = the number of unique jobs job-feed delivered for that run (dataset item count). It stops at maxAdsPerSearch: capped = yes means \"at least this many\".\nconst s = $('Settings').first().json;\nconst runs = $('Check the job market runs').all().map(i => i.json).filter(r => r.outcome === 'done' && !r.stillRunning);\nconst cap = Math.max(1, Math.round(Number(s.maxAdsPerSearch) || 30));\nconst days = Number(s.postedWithinDays) > 0 ? Number(s.postedWithinDays) : 7;\nconst num = v => (v === '' || v == null || isNaN(Number(v))) ? null : Number(v);\nconst r2 = v => Math.round(v * 100) / 100;\n// A text starting with = + - @ gets a leading apostrophe so Google Sheets keeps it as text.\nconst safe = v => { v = String(v == null ? '' : v).trim(); return /^[=+\\-@]/.test(v) ? \"'\" + v : v; };\nconst now = $now.toFormat('yyyy-LL-dd HH:mm');\nconst hist = $('Read History tab').all().map(i => i.json).filter(r => r.week && r.role);\nconst pairKey = (role, city, cc) => [role, city, cc].join('|').toLowerCase();\nconst history = [], summary = [];\n$input.all().forEach((it, i) => {\n  const run = runs[i];\n  if (!run) return;\n  const [role, city, cc, week] = String(run.search || '').split(' | ');\n  const d = (it.json && it.json.data) || it.json || {};\n  const ads = num(d.itemCount);\n  if (!role || !week || ads == null) return;\n  const pk = pairKey(role, city, cc);\n  const prev = hist.filter(h => pairKey(h.role, h.city, h.country) === pk && String(h.week) < week && num(h.ads) != null)\n    .sort((a, b) => String(a.week).localeCompare(String(b.week))).pop();\n  const pa = prev ? num(prev.ads) : null;\n  const capped = ads >= cap;\n  const change = pa == null ? '' : ads - pa;\n  const pct = pa ? r2((ads - pa) / pa * 100) : '';\n  const wasCapped = !!prev && String(prev.capped) === 'yes';\n  const trend = pa == null ? 'first week' : ((capped || wasCapped) && ads === pa) ? 'capped' : ads > pa ? 'up' : ads < pa ? 'down' : 'same';\n  history.push({ week, checked_at: now, role: safe(role), city: safe(city), country: cc, ads, capped: capped ? 'yes' : 'no', cap, posted_within_days: days, run_url: run.run_url || '', key: [week, role, city, cc].join('|').toLowerCase() });\n  summary.push({ role: safe(role), city: safe(city), country: cc, week, ads, capped: capped ? 'yes' : 'no', previous_week: prev ? prev.week : '', previous_ads: pa == null ? '' : pa,\n    change, change_pct: pct, trend, key: pk });\n});\nreturn [{ json: { history, summary, count: history.length } }];"
+      },
+      "id": "h-node-28",
+      "name": "Build the weekly rows",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6140,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c0",
+              "leftValue": "={{ $json.count }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "h-node-29",
+      "name": "Any searches to write?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        6360,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return $('Build the weekly rows').first().json.history.map(r => ({ json: r }));"
+      },
+      "id": "h-node-30",
+      "name": "One item per history row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6580,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Sheet ready').first().json.sheetId }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "History"
+        },
+        "options": {
+          "cellFormat": "USER_ENTERED"
+        },
+        "operation": "appendOrUpdate",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "week": "={{ $json.week }}",
+            "checked_at": "={{ $json.checked_at }}",
+            "role": "={{ $json.role }}",
+            "city": "={{ $json.city }}",
+            "country": "={{ $json.country }}",
+            "ads": "={{ $json.ads }}",
+            "capped": "={{ $json.capped }}",
+            "cap": "={{ $json.cap }}",
+            "posted_within_days": "={{ $json.posted_within_days }}",
+            "run_url": "={{ $json.run_url }}",
+            "key": "={{ $json.key }}"
+          },
+          "matchingColumns": [
+            "key"
+          ],
+          "schema": [
+            {
+              "id": "week",
+              "displayName": "week",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "checked_at",
+              "displayName": "checked_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "role",
+              "displayName": "role",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "city",
+              "displayName": "city",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "country",
+              "displayName": "country",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ads",
+              "displayName": "ads",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "capped",
+              "displayName": "capped",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "cap",
+              "displayName": "cap",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "posted_within_days",
+              "displayName": "posted_within_days",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "run_url",
+              "displayName": "run_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "key",
+              "displayName": "key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      },
+      "id": "h-node-31",
+      "name": "Add rows to the History tab",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        6800,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return $('Build the weekly rows').first().json.summary.map(r => ({ json: r }));"
+      },
+      "id": "h-node-32",
+      "name": "One item per summary row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7020,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Sheet ready').first().json.sheetId }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Summary"
+        },
+        "options": {
+          "cellFormat": "USER_ENTERED"
+        },
+        "operation": "appendOrUpdate",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "role": "={{ $json.role }}",
+            "city": "={{ $json.city }}",
+            "country": "={{ $json.country }}",
+            "week": "={{ $json.week }}",
+            "ads": "={{ $json.ads }}",
+            "capped": "={{ $json.capped }}",
+            "previous_week": "={{ $json.previous_week }}",
+            "previous_ads": "={{ $json.previous_ads }}",
+            "change": "={{ $json.change }}",
+            "change_pct": "={{ $json.change_pct }}",
+            "trend": "={{ $json.trend }}",
+            "key": "={{ $json.key }}"
+          },
+          "matchingColumns": [
+            "key"
+          ],
+          "schema": [
+            {
+              "id": "role",
+              "displayName": "role",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "city",
+              "displayName": "city",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "country",
+              "displayName": "country",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "week",
+              "displayName": "week",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ads",
+              "displayName": "ads",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "capped",
+              "displayName": "capped",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "previous_week",
+              "displayName": "previous_week",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "previous_ads",
+              "displayName": "previous_ads",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "change",
+              "displayName": "change",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "change_pct",
+              "displayName": "change_pct",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "trend",
+              "displayName": "trend",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "key",
+              "displayName": "key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      },
+      "id": "h-node-33",
+      "name": "Update the Summary tab",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        7240,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Collapse to ONE item: the next step (mark the run collected) runs exactly once.\nreturn [{ json: { done: true } }];"
+      },
+      "id": "h-node-34",
+      "name": "Rows written (once)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7460,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Weekly job market report: how many job ads per role and city, in Google Sheets\nEvery Monday this workflow counts the new job ads of the last 7 days for each role and city on your list, from many job boards at once, and stores the numbers in a Google Sheet: a **History** tab (one row per role, city and week) and a **Summary** tab (latest week, the week before, change and trend) that is ready for a chart. Use it for job market data without a subscription: recruiters and sourcers (where is hiring growing?), HR and salary teams, career coaches, bootcamps and analysts. It reads public job ads only and sends nothing.\n\n**How it works**\n1. Finds (or on the first run creates) your Sheet with 4 tabs: **Searches** (your list, 4 examples), **History**, **Summary**, **Runs**.\n2. Reads the active rows of **Searches**: `role`, `city`, `country` (2 letters). Searches already stored for this week are skipped; at most `maxSearchesPerRun` (4) start per run.\n3. The Apify actor `santamaria-automations/job-feed` runs one search per row: the role as keyword, the city and country, ads posted in the last `postedWithinDays` (7) days, at most `maxAdsPerSearch` (30) unique ads, titles filtered by `minRelevanceScore` (50). Runs start **without waiting** and are logged in the **Runs** tab (see the sticky \"Long runs\"). Optional: a webhook delivers results the moment a run finishes.\n4. For each run the workflow reads how many unique ads job-feed delivered (the dataset item count; no rows are downloaded).\n5. **History** gets a row per role x city x week (`ads`, `capped`, `cap`, `run_url`); **Summary** gets one row per role x city with `previous_week`, `previous_ads`, `change`, `change_pct` and `trend` (first week, up, down, same, capped).\n\n**Setup (about 10 minutes)**\n1. Install the verified community node `@apify/n8n-nodes-apify` (install guide: https://docs.apify.com/platform/integrations/n8n). You need an Apify account (free to start: https://console.apify.com/sign-up?fpr=0khfbz). Connect it in **Get job market run status** and **Count the job ads of each run**, and in **Start job market run (no waiting)** (credential type Apify API).\n2. Connect Google Sheets (Sheet nodes and the HTTP nodes that set it up).\n3. Run once with **Test workflow**: the Sheet is created with 4 example searches. Open the **Searches** tab and replace them with your roles and cities (country = 2 letters).\n4. Run again or wait for Monday, then activate. Times use your n8n timezone.\n\n**Cost** (at Apify Store prices, checked 2026-11-23, from the job-feed README rate card and examples): job-feed bills $0.0005 per unique job, and the job boards it reads bill on top; the README budgets about $0.40-$0.80 per 100 jobs without detail fetch. Default config: 4 searches x up to 30 ads = up to 120 ads per week = about $0.48-$0.96 per week (about $2-$4 per month). More roles or cities, a higher `maxAdsPerSearch` or a daily schedule raise it in proportion. `maxCostPerRunUsd` (0.25 per run) is a budget setting, not a guaranteed hard stop. n8n and Google Sheets as per your plans.\n\n**Limits**\n- The count is capped by `maxAdsPerSearch` to keep the cost small. `capped` = yes means \"at least this many ads\"; raise the cap for big cities or broad roles, and the cost grows with it.\n- It counts unique job ads that job-feed found on the boards it supports (see https://apify.com/santamaria-automations/job-feed) in the city radius `radiusKm` (25 km): a sample of the market, not a census, and coverage differs by country.\n- The same job on several boards is counted once; jobs posted under a different title may be missed or filtered by `minRelevanceScore`.\n- Weeks start on Monday in your n8n timezone. Re-running the same week overwrites that week's History row only when `reRunSameWeek` is true; otherwise finished searches are skipped.\n- Use the numbers as a trend indicator.",
+        "width": 520,
+        "height": 1560,
+        "color": 4
+      },
+      "id": "h-node-35",
+      "name": "Sticky Note - Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -640,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Settings explained\n- `maxSearchesPerRun` (4): job-feed runs started per execution; the other rows of Searches follow in the next execution (searches stored for this week are skipped), which also keeps cost bounded.\n- `maxAdsPerSearch` (30): unique ads per search. Cost = ads x about $0.004-$0.008 (README range). `capped` = yes in the Sheet means the real number is higher.\n- `postedWithinDays` (7): the window. Seven days with a weekly schedule = new ads of that week.\n- `radiusKm` (25): around the city. `minRelevanceScore` (50): drops ads whose title shares less than half of the role words.\n- `includeGlobalBoards` (true): also Indeed, Glassdoor and LinkedIn for the country; false is cheaper and narrower.\n- `reRunSameWeek` (false): true overwrites this week's rows.\n- `sheetName`: your Google Sheet. `maxWaitMinutes` (15), `apifyRunTimeoutMinutes` (30), `maxCostPerRunUsd` (0.25), `webhookUrl` (empty = off).",
+        "width": 480,
+        "height": 560,
+        "color": 7
+      },
+      "id": "h-node-36",
+      "name": "Sticky Note - Settings explained",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        140,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Searches tab (your list)\nOne row per role and city. `role` is used as the search keyword (use the words in the job title: \"Data Analyst\", \"Pflegefachperson\"), `city` as the location, `country` as a 2-letter code (DE, CH, AT, US, GB ...), `active` = no skips a row. An empty tab stops the workflow with a message before any Apify cost.",
+        "width": 520,
+        "height": 360,
+        "color": 7
+      },
+      "id": "h-node-37",
+      "name": "Sticky Note - Searches tab",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2000,
+        -420
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### History and Summary (chart-ready)\n**History**: one row per week, role and city (`ads`, `capped`). Select the columns week, role, city, ads and use Insert > Chart (or a pivot table: rows = week, columns = role, values = ads) for a trend line.\n**Summary**: one row per role and city with the latest week, `previous_ads`, `change`, `change_pct` and `trend`. Select role, city, ads and insert a column chart for the ranking.\nThe workflow only writes its own columns; add your own to the right.",
+        "width": 760,
+        "height": 340,
+        "color": 7
+      },
+      "id": "h-node-38",
+      "name": "Sticky Note - Summary and chart",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        6140,
+        -380
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### If something goes wrong\n- **\"No active search ...\"** or **\"country must be 2 letters\"**: fix the Searches tab. No Apify cost has been spent.\n- **A run fails** (timeout): the Runs tab shows the status and a note; that search is tried again next time (no History row exists for it).\n- **ads = 0**: no matching ads in the window; check spelling, city and country, or widen `postedWithinDays`.",
+        "width": 480,
+        "height": 260,
+        "color": 3
+      },
+      "id": "h-node-39",
+      "name": "Sticky Note - Errors",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        140,
+        880
+      ]
+    }
+  ],
+  "connections": {
+    "Find the Sheet by name": {
+      "main": [
+        [
+          {
+            "node": "Sheet exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Use the existing Sheet": {
+      "main": [
+        [
+          {
+            "node": "Sheet ready",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create the Sheet (first run)": {
+      "main": [
+        [
+          {
+            "node": "Write the header rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write the header rows": {
+      "main": [
+        [
+          {
+            "node": "Read the tab IDs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read the tab IDs": {
+      "main": [
+        [
+          {
+            "node": "Add the dropdowns",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add the dropdowns": {
+      "main": [
+        [
+          {
+            "node": "Use the new Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Use the new Sheet": {
+      "main": [
+        [
+          {
+            "node": "Sheet ready",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sheet exists?": {
+      "main": [
+        [
+          {
+            "node": "Use the existing Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create the Sheet (first run)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every Monday at 8 AM": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run manually": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Find the Sheet by name",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sheet ready": {
+      "main": [
+        [
+          {
+            "node": "Read Searches tab",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Searches tab": {
+      "main": [
+        [
+          {
+            "node": "Read History tab",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read History tab": {
+      "main": [
+        [
+          {
+            "node": "Read Runs tab",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Plan the job market searches": {
+      "main": [
+        [
+          {
+            "node": "Anything to start? (job market)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anything to start? (job market)": {
+      "main": [
+        [
+          {
+            "node": "One item per job market search",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Runs to watch (job market)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One item per job market search": {
+      "main": [
+        [
+          {
+            "node": "Start job market run (no waiting)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start job market run (no waiting)": {
+      "main": [
+        [
+          {
+            "node": "Log the new job market runs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log the new job market runs": {
+      "main": [
+        [
+          {
+            "node": "Add to Runs tab (job market)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add to Runs tab (job market)": {
+      "main": [
+        [
+          {
+            "node": "Runs to watch (job market)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Runs to watch (job market)": {
+      "main": [
+        [
+          {
+            "node": "Get job market run status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get job market run status": {
+      "main": [
+        [
+          {
+            "node": "Check the job market runs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check the job market runs": {
+      "main": [
+        [
+          {
+            "node": "Still running? (job market)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Still running? (job market)": {
+      "main": [
+        [
+          {
+            "node": "Wait before checking again (job market)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Run succeeded? (job market)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait before checking again (job market)": {
+      "main": [
+        [
+          {
+            "node": "Get job market run status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run succeeded? (job market)": {
+      "main": [
+        [
+          {
+            "node": "Count the job ads of each run",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Run ended with a problem? (job market)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run ended with a problem? (job market)": {
+      "main": [
+        [
+          {
+            "node": "Describe the job market run problem",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Describe the job market run problem": {
+      "main": [
+        [
+          {
+            "node": "Update Runs row (job market)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark the job market runs collected": {
+      "main": [
+        [
+          {
+            "node": "Update Runs row (job market)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Runs tab": {
+      "main": [
+        [
+          {
+            "node": "Plan the job market searches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apify run finished": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Count the job ads of each run": {
+      "main": [
+        [
+          {
+            "node": "Build the weekly rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build the weekly rows": {
+      "main": [
+        [
+          {
+            "node": "Any searches to write?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any searches to write?": {
+      "main": [
+        [
+          {
+            "node": "One item per history row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rows written (once)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One item per history row": {
+      "main": [
+        [
+          {
+            "node": "Add rows to the History tab",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add rows to the History tab": {
+      "main": [
+        [
+          {
+            "node": "One item per summary row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One item per summary row": {
+      "main": [
+        [
+          {
+            "node": "Update the Summary tab",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update the Summary tab": {
+      "main": [
+        [
+          {
+            "node": "Rows written (once)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rows written (once)": {
+      "main": [
+        [
+          {
+            "node": "Mark the job market runs collected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

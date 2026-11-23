@@ -1,0 +1,1097 @@
+{
+  "name": "Daily outreach drafts from Google Maps with Apify, Google Sheets and Gmail (never sends)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Daily outreach drafts: Google Maps → role inbox → Sheet → Gmail drafts (never sent)\n\nEvery weekday morning this workflow finds new local businesses for one of your searches (for example \"event agency in Manchester\"; a different search × city pair each weekday), finds the inbox they publish on their own website, logs them in a Google Sheet and leaves one Gmail **draft** per company. It never sends an email: you read the drafts and press send yourself.\n\n**How it works**\n1. Finds (or on the first run creates) your Sheet and reads the **Leads** tab so companies you already have are skipped (matched by website domain).\n2. Apify `santamaria-automations/google-maps-scraper` returns 20 places for today's search × city pair. Places without a website, closed places and known domains are dropped; at most `newPerDay` are kept.\n3. Apify `santamaria-automations/website-contact-extractor` reads each website's contact pages (no API key needed). A role inbox (events@, hello@, info@ …) is picked; personal addresses are never used.\n4. Companies still without an inbox go to `santamaria-automations/website-email-scraper` (up to 5 pages per site).\n5. Every new company gets a row (status `to review`). Companies with an inbox also get a Gmail draft built from your template in **Settings**.\n\n**Setup (about 10 minutes)**\n1. Install the verified community node `@apify/n8n-nodes-apify` (tested with 0.9.0; install guide: https://docs.apify.com/platform/integrations/n8n). It works on n8n Cloud and self-hosted. Connect your Apify account in the three Apify nodes (OAuth2 on Cloud or an API token).\n2. Connect Google Sheets (Sheet and HTTP nodes) and Gmail. On the first run the workflow creates the Sheet **Daily outreach drafts - NanoScrape** in your Drive with a **Leads** tab and header row; later runs find it by name.\n3. Open **Settings**: your searches and cities (one per line; each weekday uses the next pair), how many new companies per day, your name, and the email subject/body. `{company}`, `{category}` and `{city}` are filled in per company.\n4. The Gmail node only **creates drafts**. Nothing is ever sent.\n5. Test with **Test workflow**, then activate. The trigger runs Monday to Friday at 6 AM (your n8n timezone).\n\n**Times:** dates in the Sheet and the 'every weekday' schedule use your n8n timezone (Settings → Timezone).\n\n**Tested on** n8n 2.35.7 and 2.47.7 (self-hosted), 2026-11-16.\n\n**Cost** (Apify Store prices, checked 2026-11-16): Maps $0.001 per place, contact extractor $0.01 per website with contacts, email scraper $0.001 per page, plus small start fees. 10 new companies a day ≈ $0.15-0.20 a day. The Maps search runs every day even when it finds 0 new companies (about $0.02 for 20 places), which is why Settings rotates through several searches and cities: the same search returns mostly the same places every day. Every Apify node has a **Max cost per run** cap.\n\n**Limits**\n- Drafts are a template, not AI-written. Personalise before you send.\n- Only inboxes published on the company's own website are used. No guessing, no SMTP verification.\n- Check your local rules for B2B email (for example GDPR/PECR) before sending.",
+        "height": 1240,
+        "width": 520,
+        "color": 4
+      },
+      "id": "b2000000-0000-4000-8000-000000000001",
+      "name": "Sticky Note - Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -640,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 1. Find new companies\nKnown domains from the Leads tab are skipped, so each day only adds new ones.",
+        "height": 560,
+        "width": 1000,
+        "color": 7
+      },
+      "id": "b2000000-0000-4000-8000-000000000002",
+      "name": "Sticky Note - Find",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1520,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 2. Find a role inbox\nContact extractor first; the email scraper only for the companies it found nothing for.",
+        "height": 680,
+        "width": 1060,
+        "color": 7
+      },
+      "id": "b2000000-0000-4000-8000-000000000003",
+      "name": "Sticky Note - Inbox",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2540,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 3. Log + drafts (never sent)\nOne Sheet row per new company. One Gmail draft per company with an inbox.",
+        "height": 560,
+        "width": 1100,
+        "color": 7
+      },
+      "id": "b2000000-0000-4000-8000-000000000004",
+      "name": "Sticky Note - Output",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        3620,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 6 * * 1-5"
+            }
+          ]
+        }
+      },
+      "id": "b2000000-0000-4000-8000-000000000110",
+      "name": "Weekdays at 6 AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -60,
+        0
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "b2000000-0000-4000-8000-000000000111",
+      "name": "Run manually",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "s1",
+              "name": "searches",
+              "value": "event agency\nevent planner\nconference organiser",
+              "type": "string"
+            },
+            {
+              "id": "s2",
+              "name": "cities",
+              "value": "Manchester, UK\nLeeds, UK\nLiverpool, UK",
+              "type": "string"
+            },
+            {
+              "id": "s3",
+              "name": "newPerDay",
+              "value": 10,
+              "type": "number"
+            },
+            {
+              "id": "s5",
+              "name": "senderName",
+              "value": "YOUR NAME, YOUR COMPANY",
+              "type": "string"
+            },
+            {
+              "id": "s6",
+              "name": "subject",
+              "value": "Quick question about {company}",
+              "type": "string"
+            },
+            {
+              "id": "s7",
+              "name": "body",
+              "value": "Hi {company} team,\n\nI found {company} on Google Maps while looking at {category} listings in {city}.\n\n[One sentence about what you offer and why it helps {company}.]\n\nWould it be worth a 15-minute call next week?\n\nBest,\n{sender}",
+              "type": "string"
+            },
+            {
+              "id": "sn",
+              "name": "sheetName",
+              "value": "Daily outreach drafts - NanoScrape",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b2000000-0000-4000-8000-000000000112",
+      "name": "Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        140,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Sheet ready').first().json.sheetId }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Leads"
+        },
+        "options": {}
+      },
+      "id": "b2000000-0000-4000-8000-000000000113",
+      "name": "Read Leads tab",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1560,
+        80
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "// Collect the domains already in the sheet and pick today's search.\n// Rotation: every search × city pair in Settings, one pair per weekday, so Maps keeps finding new companies.\nconst s = $('Settings').first().json;\nconst lines = v => String(v || '').split('\\n').map(x => x.trim()).filter(Boolean);\nconst pairs = [];\nfor (const city of lines(s.cities)) for (const search of lines(s.searches)) pairs.push({ search, city });\n// Weekdays since Monday 1970-01-05; Saturday/Sunday reuse Friday's pair.\nconst d = Math.floor((Date.now() - Date.UTC(1970, 0, 5)) / 86400000);\nconst today = pairs[(Math.floor(d / 7) * 5 + Math.min(d % 7, 4)) % pairs.length];\nconst known = $input.all().map(i => String(i.json.domain || '').toLowerCase()).filter(Boolean);\nreturn [{ json: { known, search: today.search, city: today.city, searchStrings: [`${today.search} ${today.city}`], max: 20 } }];"
+      },
+      "id": "b2000000-0000-4000-8000-000000000114",
+      "name": "Known domains",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "Actors",
+        "operation": "Run actor and get dataset",
+        "actorId": "santamaria-automations~google-maps-scraper",
+        "customBody": "={{ JSON.stringify({ searchStrings: $json.searchStrings, maxResultsPerQuery: $json.max, language: 'en' }) }}",
+        "timeout": 900,
+        "memory": 1024,
+        "maxTotalChargeUsd": 0.2
+      },
+      "id": "b2000000-0000-4000-8000-000000000115",
+      "name": "Google Maps search",
+      "type": "@apify/n8n-nodes-apify.apify",
+      "typeVersion": 2,
+      "position": [
+        1960,
+        80
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "// Drop places without a website, closed places, duplicates and domains already in the sheet. Keep newPerDay.\nconst s = $('Settings').first().json;\nconst known = new Set($('Known domains').first().json.known);\nconst out = [];\nfor (const { json: p } of $input.all()) {\n  if (!p.website || (p.status && p.status !== 'OPERATIONAL')) continue;\n  const domain = String(p.website).replace(/^https?:\\/\\//i, '').replace(/^www\\./i, '').split('/')[0].toLowerCase();\n  if (!domain || known.has(domain)) continue;\n  known.add(domain);\n  out.push({ json: { company: p.title, website: p.website, domain, category: p.category || '', city: $('Known domains').first().json.city, rating: p.rating ?? '', google_maps_url: p.link || '' } });\n  if (out.length >= s.newPerDay) break;\n}\nreturn out;"
+      },
+      "id": "b2000000-0000-4000-8000-000000000116",
+      "name": "New companies with a website",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "// One Apify run for all websites (one start fee).\nreturn [{ json: { urls: $input.all().map(i => 'https://' + i.json.domain + '/') } }];"
+      },
+      "id": "b2000000-0000-4000-8000-000000000117",
+      "name": "Website list",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2360,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "Actors",
+        "operation": "Run actor and get dataset",
+        "actorId": "santamaria-automations~website-contact-extractor",
+        "customBody": "={{ JSON.stringify({ urls: $json.urls, maxPagesPerUrl: 5 }) }}",
+        "timeout": 900,
+        "memory": 1024,
+        "maxTotalChargeUsd": 0.3
+      },
+      "id": "b2000000-0000-4000-8000-000000000118",
+      "name": "Contact extractor (no API key)",
+      "type": "@apify/n8n-nodes-apify.apify",
+      "typeVersion": 2,
+      "position": [
+        2580,
+        80
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "// Pick one role inbox per company. Personal addresses (firstname@, first.last@) are never used.\nconst ROLE = ['events', 'hello', 'info', 'enquiries', 'enquiry', 'inquiries', 'inquiry', 'hi', 'admin', 'studio', 'reception', 'post', 'welcome', 'contact', 'office', 'sales', 'bookings', 'booking', 'team', 'mail', 'kontakt', 'operations', 'ops', 'staffing', 'marketing', 'partnerships', 'business', 'newbusiness', 'general', 'reservations'];\nconst found = {};\nfor (const { json: r } of $input.all()) {\n  const host = String(r.domain || '').replace(/^www\\./, '').toLowerCase();\n  const emails = (r.emails || []).map(e => String(typeof e === 'string' ? e : e.email || '').toLowerCase());\n  const role = ROLE.map(p => emails.find(e => e.split('@')[0] === p)).find(Boolean);\n  if (host && role) found[host] = role;\n}\nreturn $('New companies with a website').all().map(({ json: c }) => ({ json: { ...c, inbox: found[c.domain] || '', inbox_source: found[c.domain] ? 'contact extractor' : '' } }));"
+      },
+      "id": "b2000000-0000-4000-8000-000000000119",
+      "name": "Pick role inbox",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2780,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "h1",
+              "leftValue": "={{ $json.inbox }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b2000000-0000-4000-8000-000000000120",
+      "name": "Has inbox?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2980,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "// Companies without an inbox go to the email scraper in one run.\nconst rows = $input.all().map(i => i.json);\nreturn [{ json: { rows, urls: rows.map(r => 'https://' + r.domain + '/') } }];"
+      },
+      "id": "b2000000-0000-4000-8000-000000000121",
+      "name": "Gap list",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3060,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "Actors",
+        "operation": "Run actor and get dataset",
+        "actorId": "santamaria-automations~website-email-scraper",
+        "customBody": "={{ JSON.stringify({ urls: $json.urls, maxPagesPerSite: 5 }) }}",
+        "timeout": 900,
+        "memory": 1024,
+        "maxTotalChargeUsd": 0.1
+      },
+      "id": "b2000000-0000-4000-8000-000000000122",
+      "name": "Email scraper for gaps",
+      "type": "@apify/n8n-nodes-apify.apify",
+      "typeVersion": 2,
+      "position": [
+        3260,
+        320
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "// Same role-inbox rule for the email scraper results. Companies still without an inbox are logged with an empty inbox.\nconst ROLE = ['events', 'hello', 'info', 'enquiries', 'enquiry', 'inquiries', 'inquiry', 'hi', 'admin', 'studio', 'reception', 'post', 'welcome', 'contact', 'office', 'sales', 'bookings', 'booking', 'team', 'mail', 'kontakt', 'operations', 'ops', 'staffing', 'marketing', 'partnerships', 'business', 'newbusiness', 'general', 'reservations'];\nconst found = {};\nfor (const { json: r } of $input.all()) {\n  const host = String(r.domain || '').replace(/^www\\./, '').toLowerCase();\n  const emails = (r.emails || []).map(e => String(e).toLowerCase());\n  const role = ROLE.map(p => emails.find(e => e.split('@')[0] === p)).find(Boolean);\n  if (host && role) found[host] = role;\n}\nreturn $('Gap list').first().json.rows.map(c => ({ json: { ...c, inbox: found[c.domain] || '', inbox_source: found[c.domain] ? 'email scraper' : 'none found' } }));"
+      },
+      "id": "b2000000-0000-4000-8000-000000000123",
+      "name": "Fill gaps",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3460,
+        320
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "b2000000-0000-4000-8000-000000000124",
+      "name": "All new companies",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        3660,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Sheet ready').first().json.sheetId }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Leads"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "company": "={{ $json.company }}",
+            "website": "={{ $json.website }}",
+            "domain": "={{ $json.domain }}",
+            "inbox": "={{ $json.inbox }}",
+            "inbox_source": "={{ $json.inbox_source }}",
+            "category": "={{ $json.category }}",
+            "city": "={{ $json.city }}",
+            "rating": "={{ $json.rating }}",
+            "google_maps_url": "={{ $json.google_maps_url }}",
+            "date": "={{ $now.toFormat('yyyy-MM-dd') }}",
+            "status": "to review"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "date",
+              "displayName": "date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "company",
+              "displayName": "company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "website",
+              "displayName": "website",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "domain",
+              "displayName": "domain",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "inbox",
+              "displayName": "inbox",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "inbox_source",
+              "displayName": "inbox_source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "category",
+              "displayName": "category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "city",
+              "displayName": "city",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "rating",
+              "displayName": "rating",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "google_maps_url",
+              "displayName": "google_maps_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {
+          "cellFormat": "USER_ENTERED"
+        }
+      },
+      "id": "b2000000-0000-4000-8000-000000000125",
+      "name": "Add rows to Leads",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        3860,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "f1",
+              "leftValue": "={{ $('All new companies').item.json.inbox }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b2000000-0000-4000-8000-000000000126",
+      "name": "Only rows with an inbox",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        4060,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Replace {company}, {category}, {city}, {sender} in the subject and body from Settings.\nconst s = $('Settings').first().json;\nconst c = $('All new companies').item.json;\nconst fill = t => String(t).replace(/\\{company\\}/g, c.company).replace(/\\{category\\}/g, (c.category || 'business').toLowerCase()).replace(/\\{city\\}/g, c.city).replace(/\\{sender\\}/g, s.senderName);\nreturn { json: { to: c.inbox, subject: fill(s.subject), body: fill(s.body) } };"
+      },
+      "id": "b2000000-0000-4000-8000-000000000127",
+      "name": "Fill in the template",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4260,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "draft",
+        "subject": "={{ $json.subject }}",
+        "emailType": "text",
+        "message": "={{ $json.body }}",
+        "options": {
+          "sendTo": "={{ $json.to }}"
+        }
+      },
+      "id": "b2000000-0000-4000-8000-000000000128",
+      "name": "Create Gmail draft (never sends)",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        4480,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://www.googleapis.com/drive/v3/files",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "=name = '{{ $('Settings').first().json.sheetName.replace(/'/g, \"\\\\'\") }}' and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false"
+            },
+            {
+              "name": "fields",
+              "value": "files(id,name,webViewLink)"
+            },
+            {
+              "name": "orderBy",
+              "value": "createdTime"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a-setup-1",
+      "name": "Find the Sheet by name",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        360,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e1",
+              "leftValue": "={{ ($json.files || []).length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a-setup-2",
+      "name": "Sheet exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        560,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "u1",
+              "name": "sheetId",
+              "value": "={{ $json.files[0].id }}",
+              "type": "string"
+            },
+            {
+              "id": "u2",
+              "name": "sheetUrl",
+              "value": "={{ $json.files[0].webViewLink }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a-setup-3",
+      "name": "Use the existing Sheet",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        780,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "spreadsheet",
+        "title": "={{ $('Settings').first().json.sheetName }}",
+        "sheetsUi": {
+          "sheetValues": [
+            {
+              "title": "Leads"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a-setup-4",
+      "name": "Create the Sheet (first run)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        780,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $json.spreadsheetId }}/values:batchUpdate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ valueInputOption: 'RAW', data: [{range:\"'Leads'!A1\",values:[[\"date\", \"company\", \"website\", \"domain\", \"inbox\", \"inbox_source\", \"category\", \"city\", \"rating\", \"google_maps_url\", \"status\"]]}] }) }}",
+        "options": {}
+      },
+      "id": "a-setup-5",
+      "name": "Write the header rows",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        980,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "w1",
+              "name": "sheetId",
+              "value": "={{ $('Create the Sheet (first run)').first().json.spreadsheetId }}",
+              "type": "string"
+            },
+            {
+              "id": "w2",
+              "name": "sheetUrl",
+              "value": "={{ $('Create the Sheet (first run)').first().json.spreadsheetUrl }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a-setup-6",
+      "name": "Use the new Sheet",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1180,
+        200
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "a-setup-7",
+      "name": "Sheet ready",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1420,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 0. Your Sheet (sets itself up)\nLooks for a Google Sheet called `sheetName` in your Drive. On the first run it isn't there, so the workflow creates it with all tabs and header rows. Every later run finds it by name and reuses it. Rename it in Drive? Change `sheetName` too.",
+        "height": 560,
+        "width": 1060,
+        "color": 5
+      },
+      "id": "a-setup-note",
+      "name": "Sticky Note - Sheet setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        320,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### If something goes wrong\n- **An Apify run fails** (bad input, timeout, cost cap reached): the node retries once, then the execution stops before any row or draft is created. Run it again; nothing was half-done.\n- **No new companies today:** the workflow ends after \"New companies with a website\" (no extractor cost, no rows, no drafts).\n- **Duplicates:** every company is matched by website domain against the Leads tab before anything is written, so a repeated run never adds a company or a draft twice. Delete a row to let that company come back.\n- For the 6 AM schedule, set an error workflow in **Workflow settings** to get notified.",
+        "height": 240,
+        "width": 1060,
+        "color": 3
+      },
+      "id": "a-errors-note",
+      "name": "Sticky Note - Errors",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        320,
+        400
+      ]
+    }
+  ],
+  "connections": {
+    "Weekdays at 6 AM": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run manually": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Find the Sheet by name",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Leads tab": {
+      "main": [
+        [
+          {
+            "node": "Known domains",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Known domains": {
+      "main": [
+        [
+          {
+            "node": "Google Maps search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Maps search": {
+      "main": [
+        [
+          {
+            "node": "New companies with a website",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "New companies with a website": {
+      "main": [
+        [
+          {
+            "node": "Website list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Website list": {
+      "main": [
+        [
+          {
+            "node": "Contact extractor (no API key)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Contact extractor (no API key)": {
+      "main": [
+        [
+          {
+            "node": "Pick role inbox",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick role inbox": {
+      "main": [
+        [
+          {
+            "node": "Has inbox?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gap list": {
+      "main": [
+        [
+          {
+            "node": "Email scraper for gaps",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email scraper for gaps": {
+      "main": [
+        [
+          {
+            "node": "Fill gaps",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add rows to Leads": {
+      "main": [
+        [
+          {
+            "node": "Only rows with an inbox",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Only rows with an inbox": {
+      "main": [
+        [
+          {
+            "node": "Fill in the template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fill in the template": {
+      "main": [
+        [
+          {
+            "node": "Create Gmail draft (never sends)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has inbox?": {
+      "main": [
+        [
+          {
+            "node": "All new companies",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Gap list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fill gaps": {
+      "main": [
+        [
+          {
+            "node": "All new companies",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "All new companies": {
+      "main": [
+        [
+          {
+            "node": "Add rows to Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find the Sheet by name": {
+      "main": [
+        [
+          {
+            "node": "Sheet exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Use the existing Sheet": {
+      "main": [
+        [
+          {
+            "node": "Sheet ready",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create the Sheet (first run)": {
+      "main": [
+        [
+          {
+            "node": "Write the header rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write the header rows": {
+      "main": [
+        [
+          {
+            "node": "Use the new Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Use the new Sheet": {
+      "main": [
+        [
+          {
+            "node": "Sheet ready",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sheet exists?": {
+      "main": [
+        [
+          {
+            "node": "Use the existing Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create the Sheet (first run)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sheet ready": {
+      "main": [
+        [
+          {
+            "node": "Read Leads tab",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}
