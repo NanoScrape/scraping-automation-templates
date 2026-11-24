@@ -4,7 +4,8 @@ Turn any Google Maps search into a lead list in Google Sheets. Enter searches li
 
 ## Template link
 
-Public Make template: pending approval
+- Public Make template: [Google Maps Leads to Google Sheets with Apify](https://www.make.com/en/integration/25708-google-maps-leads-to-google-sheets-with-apify-nanoscrape?templatePublicId=25708) (works now; Make gallery review pending)
+- Blueprint file: [blueprint.json](./blueprint.json) (download, then in Make: new scenario > ... > Import blueprint)
 
 ## How it works
 
@@ -20,7 +21,7 @@ Public Make template: pending approval
 
 ## Setup
 
-1. Open the template link above in Make and click **Use template** (no blueprint file is included in this folder, the template lives in Make's public gallery).
+1. Open the template link above in Make and click **Use template**. Or download [blueprint.json](./blueprint.json), create a new scenario in Make and use **... > Import blueprint**. The file has no connections or spreadsheet; you pick your own in step 2 and 3.
 2. Connect your Apify account ([free sign-up](https://console.apify.com/sign-up?fpr=0khfbz&fp_sid=gh-make-google-maps-leads-to-sheets)) and your Google account in the wizard.
 3. Create the Google spreadsheet with the headers listed below in row 1 and pick it in the wizard.
 4. Change the Input JSON, keep **Maximum cost per run** as a safety cap, run once, then schedule it if you want.
