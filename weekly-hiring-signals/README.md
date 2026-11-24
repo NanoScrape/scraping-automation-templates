@@ -2,6 +2,9 @@
 
 Companies that post several jobs for the same kind of role this week are warm leads. Every Monday this workflow searches LinkedIn job posts for your roles and location, groups them by company, drops staffing agencies, and posts a short digest to Slack. Every company also gets a row in a Google Sheet so you can see who keeps hiring.
 
+- n8n template library: not published yet
+- Workflow file: [workflow.json](./workflow.json) (Import from URL: https://raw.githubusercontent.com/NanoScrape/scraping-automation-templates/main/weekly-hiring-signals/workflow.json)
+
 ![Workflow overview](workflow.png)
 
 ## How it works
@@ -20,7 +23,7 @@ Companies that post several jobs for the same kind of role this week are warm le
 ## How to import
 
 1. Open [n8n](https://n8n.partnerlinks.io/rx97o1phofve) ([n8n Cloud](https://n8n.partnerlinks.io/rx97o1phofve) or self-hosted) and create a new workflow.
-2. Use the menu (three dots) > **Import from file** and choose `workflow.json` from this folder.
+2. Use the menu (three dots) > **Import from file** and choose [workflow.json](./workflow.json) from this folder, or **Import from URL** and paste https://raw.githubusercontent.com/NanoScrape/scraping-automation-templates/main/weekly-hiring-signals/workflow.json
 3. Install the verified community node `@apify/n8n-nodes-apify` (Settings > Community nodes) if n8n asks for it.
 4. Create your credentials: an [Apify account](https://console.apify.com/sign-up?fpr=0khfbz&fp_sid=gh-weekly-hiring-signals) (free sign-up) for the Apify nodes, plus the other services listed under Requirements.
 5. Open the **Settings** node, fill in your values, run once with **Test workflow**, then activate.

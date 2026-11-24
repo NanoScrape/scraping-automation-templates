@@ -2,6 +2,9 @@
 
 Every weekday morning this workflow finds new local businesses for one of your searches (for example "event agency in Manchester"), finds the inbox each business publishes on its own website, logs the company in a Google Sheet and leaves one Gmail **draft** per company. It never sends an email: you read the drafts and press send yourself.
 
+- n8n template library: [Create daily outreach leads and Gmail drafts from Google Maps with Apify and Sheets](https://n8n.io/workflows/22983-create-daily-outreach-leads-and-gmail-drafts-from-google-maps-with-apify-and-sheets/)
+- Workflow file: [workflow.json](./workflow.json) (Import from URL: https://raw.githubusercontent.com/NanoScrape/scraping-automation-templates/main/daily-outreach-drafts-google-maps/workflow.json)
+
 ![Workflow overview](workflow.png)
 
 ## How it works
@@ -21,7 +24,7 @@ Every weekday morning this workflow finds new local businesses for one of your s
 ## How to import
 
 1. Open [n8n](https://n8n.partnerlinks.io/rx97o1phofve) ([n8n Cloud](https://n8n.partnerlinks.io/rx97o1phofve) or self-hosted) and create a new workflow.
-2. Use the menu (three dots) > **Import from file** and choose `workflow.json` from this folder.
+2. Use the menu (three dots) > **Import from file** and choose [workflow.json](./workflow.json) from this folder, or **Import from URL** and paste https://raw.githubusercontent.com/NanoScrape/scraping-automation-templates/main/daily-outreach-drafts-google-maps/workflow.json
 3. Install the verified community node `@apify/n8n-nodes-apify` (Settings > Community nodes) if n8n asks for it.
 4. Create your credentials: an [Apify account](https://console.apify.com/sign-up?fpr=0khfbz&fp_sid=gh-daily-outreach-drafts-google-maps) (free sign-up) for the Apify nodes, plus the other services listed under Requirements.
 5. Open the **Settings** node, fill in your values, run once with **Test workflow**, then activate.

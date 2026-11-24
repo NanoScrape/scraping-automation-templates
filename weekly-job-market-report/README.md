@@ -2,6 +2,9 @@
 
 For every role and city on a list in Google Sheets, counts the new job ads of the last seven days across many job boards and stores the numbers as a history plus a chart-ready summary. Useful for recruiters, sourcers, HR, career coaches and analysts who want to see where hiring grows or slows.
 
+- n8n template library: not published yet
+- Workflow file: [workflow.json](./workflow.json) (Import from URL: https://raw.githubusercontent.com/NanoScrape/scraping-automation-templates/main/weekly-job-market-report/workflow.json)
+
 ## How it works
 
 1. A schedule (Mondays at 8 AM by default) or a manual run starts the workflow.
@@ -19,7 +22,7 @@ For every role and city on a list in Google Sheets, counts the new job ads of th
 ## How to import
 
 1. Open [n8n](https://n8n.partnerlinks.io/rx97o1phofve) ([n8n Cloud](https://n8n.partnerlinks.io/rx97o1phofve) or self-hosted) and create a new workflow.
-2. Use the menu (three dots) > **Import from file** and choose `workflow.json` from this folder.
+2. Use the menu (three dots) > **Import from file** and choose [workflow.json](./workflow.json) from this folder, or **Import from URL** and paste https://raw.githubusercontent.com/NanoScrape/scraping-automation-templates/main/weekly-job-market-report/workflow.json
 3. Install the verified community node `@apify/n8n-nodes-apify` (Settings > Community nodes) if n8n asks for it.
 4. Create your credentials: an [Apify account](https://console.apify.com/sign-up?fpr=0khfbz&fp_sid=gh-weekly-job-market-report) (free sign-up) for the Apify nodes, plus the other services listed under Requirements.
 5. Open the **Settings** node, fill in your values, run once with **Test workflow**, then activate.

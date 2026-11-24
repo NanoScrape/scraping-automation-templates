@@ -2,6 +2,9 @@
 
 A job-search tracker in Google Sheets. List your searches in three tabs (job boards with keywords, company websites, career pages). Every morning the workflow collects new jobs from all of them, removes duplicates across boards, scores each new job against your CV with your own AI model and drafts a cover letter for good matches in the language you choose. Nothing is applied for or sent. Every job is a row with a status dropdown that you move forward yourself.
 
+- n8n template library: in review
+- Workflow file: [workflow.json](./workflow.json) (Import from URL: https://raw.githubusercontent.com/NanoScrape/scraping-automation-templates/main/job-matches-cover-letters/workflow.json)
+
 ![Workflow overview](workflow.png)
 
 ## How it works
@@ -23,7 +26,7 @@ A job-search tracker in Google Sheets. List your searches in three tabs (job boa
 ## How to import
 
 1. Open [n8n](https://n8n.partnerlinks.io/rx97o1phofve) ([n8n Cloud](https://n8n.partnerlinks.io/rx97o1phofve) or self-hosted) and create a new workflow.
-2. Use the menu (three dots) > **Import from file** and choose `workflow.json` from this folder.
+2. Use the menu (three dots) > **Import from file** and choose [workflow.json](./workflow.json) from this folder, or **Import from URL** and paste https://raw.githubusercontent.com/NanoScrape/scraping-automation-templates/main/job-matches-cover-letters/workflow.json
 3. Install the verified community node `@apify/n8n-nodes-apify` (Settings > Community nodes) if n8n asks for it.
 4. Create your credentials: an [Apify account](https://console.apify.com/sign-up?fpr=0khfbz&fp_sid=gh-job-matches-cover-letters) (free sign-up) for the Apify nodes, plus the other services listed under Requirements.
 5. Open the **Settings** node, fill in your values, run once with **Test workflow**, then activate.
